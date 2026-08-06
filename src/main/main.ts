@@ -133,7 +133,9 @@ async function createMainWindow(): Promise<void> {
 
   try {
     await adBlockEngine.initialize();
-    adBlockEngine.enableOnSession(session.defaultSession);
+    // Enable ad-blocking on the persistent partition used by tabs
+    const tabSession = session.fromPartition('persist:muthu');
+    adBlockEngine.enableOnSession(tabSession);
   } catch (err) {
     console.error('[Main] AdBlock engine initialization failed (non-fatal):', err);
   }
@@ -146,8 +148,9 @@ async function createMainWindow(): Promise<void> {
     }
   };
 
-  // Set standard Chrome User-Agent across all session requests
-  session.defaultSession.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36');
+  // Set standard Chrome User-Agent on the persistent partition session
+  const tabSession = session.fromPartition('persist:muthu');
+  tabSession.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36');
 
   // ─── Create Initial Tab ───────────────────────────────────────
   tabManager.createTab('speeddial');

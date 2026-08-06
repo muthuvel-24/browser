@@ -69,8 +69,13 @@ export class ProxyManager {
       // Set proxy rule with direct fallback so browser stays usable
       const proxyRule = `${endpoint.protocol}://${endpoint.host}:${endpoint.port}, direct://`;
 
-      // Set proxy on default session — all tab WebContents inherit this
+      // Set proxy on default session AND the persistent partition used by tabs
+      const tabSession = session.fromPartition('persist:muthu');
       await session.defaultSession.setProxy({
+        proxyRules: proxyRule,
+        proxyBypassRules: '',
+      });
+      await tabSession.setProxy({
         proxyRules: proxyRule,
         proxyBypassRules: '',
       });
@@ -94,6 +99,10 @@ export class ProxyManager {
   async disable(): Promise<void> {
     try {
       await session.defaultSession.setProxy({
+        proxyRules: '',
+      });
+      const tabSession = session.fromPartition('persist:muthu');
+      await tabSession.setProxy({
         proxyRules: '',
       });
 

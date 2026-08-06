@@ -13,7 +13,7 @@
  * - Scroll position capture and restoration
  */
 
-import { WebContentsView, type BaseWindow } from 'electron';
+import { WebContentsView, session, type BaseWindow } from 'electron';
 import { randomUUID } from 'node:crypto';
 import type { TabRecord, TabInfo, TabStatus } from './types';
 import { getSpeedDialHtml } from './speeddial-html';
@@ -76,6 +76,7 @@ export class TabManager {
     const targetUrl = url ?? NEW_TAB_URL;
 
     // Create a new WebContentsView with sandboxed, isolated web preferences
+    // Using persist:muthu partition enables cookie/localStorage persistence across sessions
     const view = new WebContentsView({
       webPreferences: {
         sandbox: true,
@@ -83,8 +84,13 @@ export class TabManager {
         nodeIntegration: false,
         webgl: true,
         spellcheck: true,
+        partition: 'persist:muthu',
       },
     });
+
+    // Set Chrome-like User-Agent on the persistent partition session too
+    const tabSession = session.fromPartition('persist:muthu');
+    tabSession.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36');
 
     view.webContents.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36');
 
@@ -403,7 +409,7 @@ export class TabManager {
       }
     }
 
-    // Create fresh WebContentsView
+    // Create fresh WebContentsView with same persistent partition
     const view = new WebContentsView({
       webPreferences: {
         sandbox: true,
@@ -411,6 +417,7 @@ export class TabManager {
         nodeIntegration: false,
         webgl: true,
         spellcheck: true,
+        partition: 'persist:muthu',
       },
     });
 
@@ -570,8 +577,14 @@ export class TabManager {
       }
     });
 
-    // Handle new window requests (open in new tab instead of popup)
+    // Handle new window requests — open OAuth/auth popups in new tabs
+    // Google, Claude, and other services need popup windows for sign-in
     wc.setWindowOpenHandler(({ url }) => {
+      // Allow about:blank popups (used by OAuth flows) to open natively
+      if (url === 'about:blank') {
+        return { action: 'allow' };
+      }
+      // For all other URLs, redirect into a new browser tab
       this.createTab(url);
       return { action: 'deny' };
     });
