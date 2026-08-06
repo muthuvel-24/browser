@@ -95,6 +95,40 @@
   background: rgba(255, 27, 81, 0.35);
 }
 
+.url-input-wrapper--private {
+  border-color: rgba(150, 60, 255, 0.3);
+}
+
+.url-input-wrapper--private.url-input-wrapper--focused {
+  border-color: #963cff;
+  box-shadow: 0 0 0 2px rgba(150, 60, 255, 0.25), 0 0 16px rgba(150, 60, 255, 0.2);
+}
+
+/* ── URL Action Buttons ─────────────────────────────────────────── */
+
+.url-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.url-action-btn {
+  background: transparent;
+  border: none;
+  font-size: 13px;
+  cursor: pointer;
+  padding: 2px 5px;
+  border-radius: 4px;
+  opacity: 0.6;
+  transition: all var(--transition-fast);
+}
+
+.url-action-btn:hover {
+  opacity: 1;
+  background: rgba(255, 255, 255, 0.1);
+}
+
 /* ── SSL Indicator ──────────────────────────────────────────────── */
 
 .ssl-indicator {

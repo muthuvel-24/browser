@@ -26,6 +26,11 @@ const muthuAPI = {
     return ipcRenderer.invoke(IPC.TAB_CREATE, url);
   },
 
+  /** Create a new private/incognito tab. Returns the tab ID. */
+  createPrivateTab: (url?: string): Promise<string> => {
+    return ipcRenderer.invoke(IPC.TAB_CREATE_PRIVATE, url);
+  },
+
   /** Close a tab by ID. */
   closeTab: (tabId: string): Promise<void> => {
     return ipcRenderer.invoke(IPC.TAB_CLOSE, tabId);
@@ -76,6 +81,40 @@ const muthuAPI = {
     return ipcRenderer.invoke(IPC.CONTENT_FOCUS);
   },
 
+  // ─── Find in Page ────────────────────────────────────────────
+
+  findInPage: (text: string, options?: { forward?: boolean; findNext?: boolean }): Promise<void> => {
+    return ipcRenderer.invoke(IPC.FIND_IN_PAGE, text, options);
+  },
+
+  findStop: (action?: 'clearSelection' | 'keepSelection' | 'activateSelection'): Promise<void> => {
+    return ipcRenderer.invoke(IPC.FIND_STOP, action);
+  },
+
+  // ─── Zoom & DevTools ─────────────────────────────────────────
+
+  zoomIn: (): Promise<number> => {
+    return ipcRenderer.invoke(IPC.ZOOM_IN);
+  },
+
+  zoomOut: (): Promise<number> => {
+    return ipcRenderer.invoke(IPC.ZOOM_OUT);
+  },
+
+  zoomReset: (): Promise<number> => {
+    return ipcRenderer.invoke(IPC.ZOOM_RESET);
+  },
+
+  toggleDevTools: (): Promise<void> => {
+    return ipcRenderer.invoke(IPC.DEVTOOLS_TOGGLE);
+  },
+
+  // ─── Downloads ───────────────────────────────────────────────
+
+  getDownloads: (): Promise<import('../main/types').DownloadItemInfo[]> => {
+    return ipcRenderer.invoke(IPC.DOWNLOAD_GET_LIST);
+  },
+
   // ─── VPN / Proxy ────────────────────────────────────────────
 
   /** Enable VPN proxy for the given region. */
@@ -113,7 +152,6 @@ const muthuAPI = {
   },
 
   // ─── Event Subscriptions (Main → Renderer) ─────────────────
-  // Each returns an unsubscribe function for cleanup.
 
   /** Subscribe to tab list updates. */
   onTabUpdated: (callback: (tabs: import('../main/types').TabInfo[]) => void): (() => void) => {
@@ -122,6 +160,24 @@ const muthuAPI = {
     };
     ipcRenderer.on(IPC.TAB_UPDATED, handler);
     return () => ipcRenderer.removeListener(IPC.TAB_UPDATED, handler);
+  },
+
+  /** Subscribe to Find in Page match updates. */
+  onFindMatch: (callback: (info: import('../main/types').FindMatchInfo) => void): (() => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, info: import('../main/types').FindMatchInfo) => {
+      callback(info);
+    };
+    ipcRenderer.on(IPC.FIND_MATCH, handler);
+    return () => ipcRenderer.removeListener(IPC.FIND_MATCH, handler);
+  },
+
+  /** Subscribe to Download item updates. */
+  onDownloadUpdated: (callback: (downloads: import('../main/types').DownloadItemInfo[]) => void): (() => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, downloads: import('../main/types').DownloadItemInfo[]) => {
+      callback(downloads);
+    };
+    ipcRenderer.on(IPC.DOWNLOAD_UPDATED, handler);
+    return () => ipcRenderer.removeListener(IPC.DOWNLOAD_UPDATED, handler);
   },
 
   /** Subscribe to VPN status changes. */

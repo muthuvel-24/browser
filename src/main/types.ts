@@ -20,6 +20,7 @@ export interface TabInfo {
   isLoading: boolean;
   canGoBack: boolean;
   canGoForward: boolean;
+  isPrivate: boolean;
 }
 
 /** Internal tab record with process-level references */
@@ -30,6 +31,7 @@ export interface TabRecord {
   favicon: string;
   status: TabStatus;
   isLoading: boolean;
+  isPrivate: boolean;
   /** Timestamp of last user interaction with this tab */
   lastActiveTime: number;
   /** Saved scroll position for restoration after discard */
@@ -91,3 +93,24 @@ export interface MemoryStats {
   /** Estimated memory saved (MB) by sleeping/discarding */
   estimatedSavedMB: number;
 }
+
+// ─── Download Types ─────────────────────────────────────────────
+
+export interface DownloadItemInfo {
+  id: string;
+  filename: string;
+  savePath: string;
+  receivedBytes: number;
+  totalBytes: number;
+  state: 'progressing' | 'completed' | 'cancelled' | 'interrupted';
+  startTime: number;
+}
+
+// ─── Find in Page Types ─────────────────────────────────────────
+
+export interface FindMatchInfo {
+  activeMatchOrdinal: number;
+  matches: number;
+  finalUpdate: boolean;
+}
+

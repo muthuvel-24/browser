@@ -175,6 +175,48 @@ async function createMainWindow(): Promise<void> {
   });
 }
 
+// ─── Downloads Tracking ─────────────────────────────────────────
+import type { DownloadItemInfo } from './types';
+
+const downloads: DownloadItemInfo[] = [];
+
+function setupDownloadListener(): void {
+  const tabSession = session.fromPartition('persist:muthu');
+  tabSession.on('will-download', (_event, item) => {
+    const downloadId = String(Date.now());
+    const info: DownloadItemInfo = {
+      id: downloadId,
+      filename: item.getFilename(),
+      savePath: item.getSavePath(),
+      receivedBytes: 0,
+      totalBytes: item.getTotalBytes(),
+      state: 'progressing',
+      startTime: Date.now(),
+    };
+    downloads.unshift(info);
+    broadcastDownloads();
+
+    item.on('updated', (_event, state) => {
+      info.receivedBytes = item.getReceivedBytes();
+      info.savePath = item.getSavePath();
+      info.state = state === 'interrupted' ? 'interrupted' : 'progressing';
+      broadcastDownloads();
+    });
+
+    item.once('done', (_event, state) => {
+      info.receivedBytes = item.getReceivedBytes();
+      info.state = state === 'completed' ? 'completed' : 'cancelled';
+      broadcastDownloads();
+    });
+  });
+}
+
+function broadcastDownloads(): void {
+  if (toolbarView && !toolbarView.webContents.isDestroyed()) {
+    toolbarView.webContents.send(IPC.DOWNLOAD_UPDATED, downloads);
+  }
+}
+
 // ─── IPC Handlers ───────────────────────────────────────────────
 
 function registerIpcHandlers(): void {
@@ -182,7 +224,13 @@ function registerIpcHandlers(): void {
   ipcMain.handle(IPC.TAB_CREATE, (_event, url?: string) => {
     if (!tabManager) return '';
     const normalizedUrl = url ? normalizeUrl(url) : undefined;
-    return tabManager.createTab(normalizedUrl);
+    return tabManager.createTab(normalizedUrl, false);
+  });
+
+  ipcMain.handle(IPC.TAB_CREATE_PRIVATE, (_event, url?: string) => {
+    if (!tabManager) return '';
+    const normalizedUrl = url ? normalizeUrl(url) : undefined;
+    return tabManager.createTab(normalizedUrl, true);
   });
 
   ipcMain.handle(IPC.TAB_CLOSE, (_event, tabId: string) => {
@@ -248,6 +296,37 @@ function registerIpcHandlers(): void {
     tabManager?.focusActiveTab();
   });
 
+  // ── Find in Page ─────────────────────────────────────────────
+  ipcMain.handle(IPC.FIND_IN_PAGE, (_event, text: string, options?: { forward?: boolean; findNext?: boolean }) => {
+    tabManager?.findInPage(text, options);
+  });
+
+  ipcMain.handle(IPC.FIND_STOP, (_event, action?: 'clearSelection' | 'keepSelection' | 'activateSelection') => {
+    tabManager?.findStop(action);
+  });
+
+  // ── Zoom & DevTools ──────────────────────────────────────────
+  ipcMain.handle(IPC.ZOOM_IN, () => {
+    return tabManager?.zoomIn() ?? 1;
+  });
+
+  ipcMain.handle(IPC.ZOOM_OUT, () => {
+    return tabManager?.zoomOut() ?? 1;
+  });
+
+  ipcMain.handle(IPC.ZOOM_RESET, () => {
+    return tabManager?.zoomReset() ?? 1;
+  });
+
+  ipcMain.handle(IPC.DEVTOOLS_TOGGLE, () => {
+    tabManager?.toggleDevTools();
+  });
+
+  // ── Downloads ────────────────────────────────────────────────
+  ipcMain.handle(IPC.DOWNLOAD_GET_LIST, () => {
+    return downloads;
+  });
+
   // ── VPN / Proxy ─────────────────────────────────────────────
   ipcMain.handle(IPC.VPN_ENABLE, async (_event, region: VpnRegion) => {
     if (!proxyManager) return { enabled: false, region, state: 'disconnected', endpoint: 'none' };
@@ -284,6 +363,7 @@ function registerIpcHandlers(): void {
 
 app.whenReady().then(async () => {
   registerIpcHandlers();
+  setupDownloadListener();
   await createMainWindow();
 
   app.on('activate', () => {

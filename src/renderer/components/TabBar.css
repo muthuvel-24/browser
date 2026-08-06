@@ -172,17 +172,50 @@
   color: #fff;
 }
 
-/* ── New Tab Button ─────────────────────────────────────────────── */
+/* ── Private / Incognito Tab Styling ───────────────────────────── */
 
-.tab-new-btn {
+.tab-item--private {
+  background: rgba(112, 0, 255, 0.08);
+  border-color: rgba(112, 0, 255, 0.2);
+}
+
+.tab-item--private:hover {
+  background: rgba(112, 0, 255, 0.15);
+  border-color: rgba(112, 0, 255, 0.4);
+}
+
+.tab-item--private.tab-item--active {
+  background: #140d2b;
+  border-color: rgba(150, 60, 255, 0.5);
+}
+
+.tab-active-indicator--private {
+  background: #963cff !important;
+  box-shadow: 0 0 10px #963cff, 0 0 4px #963cff !important;
+}
+
+.tab-incognito-icon {
+  font-size: 12px;
+}
+
+/* ── Tab Action Buttons ─────────────────────────────────────────── */
+
+.tab-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 4px;
+  margin-bottom: 2px;
+  flex-shrink: 0;
+}
+
+.tab-new-btn, .tab-private-btn {
   display: flex;
   align-items: center;
   justify-content: center;
   width: 28px;
   height: 28px;
-  margin-left: 4px;
-  margin-bottom: 2px;
-  font-size: 16px;
+  font-size: 14px;
   font-weight: 400;
   color: var(--text-secondary);
   background: rgba(255, 255, 255, 0.03);
@@ -198,4 +231,11 @@
   color: var(--opera-red);
   border-color: rgba(255, 27, 81, 0.3);
   box-shadow: 0 0 8px rgba(255, 27, 81, 0.3);
+}
+
+.tab-private-btn:hover {
+  background: rgba(150, 60, 255, 0.2);
+  color: #b880ff;
+  border-color: rgba(150, 60, 255, 0.4);
+  box-shadow: 0 0 8px rgba(150, 60, 255, 0.4);
 }

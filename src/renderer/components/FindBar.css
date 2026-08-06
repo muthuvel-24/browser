@@ -1,0 +1,91 @@
+/**
+ * Muthu Browser — FindBar Styling
+ */
+
+.find-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  position: absolute;
+  top: 86px;
+  right: 24px;
+  z-index: 9999;
+  background: #1a1a2e;
+  border: 1px solid rgba(0, 240, 255, 0.3);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6), 0 0 16px rgba(0, 240, 255, 0.2);
+  border-radius: 12px;
+  padding: 6px 12px;
+  animation: findBarSlide 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes findBarSlide {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.find-input {
+  background: #0f0f1a;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 6px;
+  padding: 6px 10px;
+  color: #ffffff;
+  font-size: 13px;
+  outline: none;
+  width: 200px;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.find-input:focus {
+  border-color: #00f0ff;
+  box-shadow: 0 0 8px rgba(0, 240, 255, 0.4);
+}
+
+.find-count {
+  font-size: 12px;
+  color: #a0a0c0;
+  white-space: nowrap;
+  min-width: 60px;
+}
+
+.find-btn {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #e0e0ff;
+  border-radius: 6px;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 10px;
+  transition: all 0.15s;
+}
+
+.find-btn:hover {
+  background: rgba(0, 240, 255, 0.2);
+  border-color: #00f0ff;
+  color: #ffffff;
+}
+
+.find-close-btn {
+  background: transparent;
+  border: none;
+  color: #8080a0;
+  font-size: 14px;
+  cursor: pointer;
+  padding: 4px 6px;
+  border-radius: 4px;
+  transition: color 0.15s, background 0.15s;
+}
+
+.find-close-btn:hover {
+  color: #ff4757;
+  background: rgba(255, 71, 87, 0.15);
+}

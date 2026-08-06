@@ -20,6 +20,7 @@ interface TabBarProps {
   onSwitchTab: (tabId: string) => void;
   onCloseTab: (tabId: string) => void;
   onNewTab: () => void;
+  onNewPrivateTab: () => void;
 }
 
 /** Get the status indicator emoji for a tab */
@@ -43,6 +44,7 @@ const TabBar: React.FC<TabBarProps> = ({
   onSwitchTab,
   onCloseTab,
   onNewTab,
+  onNewPrivateTab,
 }) => {
   return (
     <div className="tab-bar" id="tab-bar">
@@ -55,15 +57,19 @@ const TabBar: React.FC<TabBarProps> = ({
             <div
               key={tab.id}
               className={`tab-item ${isActive ? 'tab-item--active' : ''} ${
-                tab.status === 'sleeping' ? 'tab-item--sleeping' : ''
-              } ${tab.status === 'discarded' ? 'tab-item--discarded' : ''}`}
+                tab.isPrivate ? 'tab-item--private' : ''
+              } ${tab.status === 'sleeping' ? 'tab-item--sleeping' : ''} ${
+                tab.status === 'discarded' ? 'tab-item--discarded' : ''
+              }`}
               onClick={() => onSwitchTab(tab.id)}
               title={tab.url}
               id={`tab-${tab.id}`}
             >
-              {/* Favicon */}
+              {/* Favicon / Incognito Icon */}
               <div className="tab-favicon">
-                {tab.isLoading ? (
+                {tab.isPrivate ? (
+                  <span className="tab-incognito-icon" title="Private Tab">🕶️</span>
+                ) : tab.isLoading ? (
                   <div className="tab-spinner" />
                 ) : tab.favicon ? (
                   <img
@@ -73,6 +79,13 @@ const TabBar: React.FC<TabBarProps> = ({
                     height={14}
                     onError={(e) => {
                       (e.target as HTMLImageElement).style.display = 'none';
+                      const parent = (e.target as HTMLImageElement).parentElement;
+                      if (parent && !parent.querySelector('.tab-favicon-fallback')) {
+                        const span = document.createElement('span');
+                        span.className = 'tab-favicon-fallback';
+                        span.innerText = '🌐';
+                        parent.appendChild(span);
+                      }
                     }}
                   />
                 ) : (
@@ -83,7 +96,7 @@ const TabBar: React.FC<TabBarProps> = ({
               {/* Title + Status */}
               <span className="tab-title">
                 {statusIcon && <span className="tab-status-icon">{statusIcon}</span>}
-                {truncateTitle(tab.title || 'New Tab')}
+                {truncateTitle(tab.title || (tab.isPrivate ? 'Private Tab' : 'New Tab'))}
               </span>
 
               {/* Close Button */}
@@ -100,22 +113,33 @@ const TabBar: React.FC<TabBarProps> = ({
               </button>
 
               {/* Active indicator bar */}
-              {isActive && <div className="tab-active-indicator" />}
+              {isActive && <div className={`tab-active-indicator ${tab.isPrivate ? 'tab-active-indicator--private' : ''}`} />}
             </div>
           );
         })}
       </div>
 
-      {/* New Tab Button */}
-      <button
-        className="tab-new-btn"
-        onClick={onNewTab}
-        title="New Tab"
-        aria-label="Open new tab"
-        id="new-tab-btn"
-      >
-        +
-      </button>
+      {/* Action Buttons */}
+      <div className="tab-actions">
+        <button
+          className="tab-new-btn"
+          onClick={onNewTab}
+          title="New Tab (Ctrl+T)"
+          aria-label="Open new tab"
+          id="new-tab-btn"
+        >
+          +
+        </button>
+        <button
+          className="tab-private-btn"
+          onClick={onNewPrivateTab}
+          title="New Private Tab (Ctrl+Shift+N)"
+          aria-label="Open private tab"
+          id="new-private-tab-btn"
+        >
+          🕶️
+        </button>
+      </div>
     </div>
   );
 };

@@ -18,11 +18,14 @@ interface AddressBarProps {
   canGoBack: boolean;
   canGoForward: boolean;
   activeTabId: string | null;
+  isPrivate?: boolean;
   onNavigate: (url: string) => void;
   onBack: () => void;
   onForward: () => void;
   onReload: () => void;
   onStop: () => void;
+  onFindClick?: () => void;
+  onDevToolsClick?: () => void;
 }
 
 /** Determine if a URL is using HTTPS */
@@ -46,11 +49,14 @@ const AddressBar: React.FC<AddressBarProps> = ({
   canGoBack,
   canGoForward,
   activeTabId,
+  isPrivate,
   onNavigate,
   onBack,
   onForward,
   onReload,
   onStop,
+  onFindClick,
+  onDevToolsClick,
 }) => {
   const [inputValue, setInputValue] = useState(getDisplayUrl(url));
   const [isFocused, setIsFocused] = useState(false);
@@ -97,9 +103,6 @@ const AddressBar: React.FC<AddressBarProps> = ({
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
-      // Let the <form onSubmit> handle navigation — do NOT call triggerNavigation()
-      // here too, otherwise two loadURL() calls fire and the first gets aborted.
-      // Just prevent default to avoid any edge-case double-submit.
       return;
     } else if (e.key === 'Escape') {
       setInputValue(getDisplayUrl(url));
@@ -111,14 +114,14 @@ const AddressBar: React.FC<AddressBarProps> = ({
   const secure = isSecure(url);
 
   return (
-    <div className="address-bar" id="address-bar">
+    <div className={`address-bar ${isPrivate ? 'address-bar--private' : ''}`} id="address-bar">
       {/* Navigation Buttons */}
       <div className="nav-buttons">
         <button
           className="nav-btn"
           onClick={onBack}
           disabled={!canGoBack}
-          title="Back"
+          title="Back (Alt+Left)"
           aria-label="Go back"
           id="nav-back"
         >
@@ -128,7 +131,7 @@ const AddressBar: React.FC<AddressBarProps> = ({
           className="nav-btn"
           onClick={onForward}
           disabled={!canGoForward}
-          title="Forward"
+          title="Forward (Alt+Right)"
           aria-label="Go forward"
           id="nav-forward"
         >
@@ -137,7 +140,7 @@ const AddressBar: React.FC<AddressBarProps> = ({
         <button
           className="nav-btn"
           onClick={isLoading ? onStop : onReload}
-          title={isLoading ? 'Stop' : 'Reload'}
+          title={isLoading ? 'Stop' : 'Reload (Ctrl+R / F5)'}
           aria-label={isLoading ? 'Stop loading' : 'Reload page'}
           id="nav-reload"
         >
@@ -147,10 +150,10 @@ const AddressBar: React.FC<AddressBarProps> = ({
 
       {/* URL Input Form */}
       <form className="url-form" onSubmit={handleSubmit}>
-        <div className={`url-input-wrapper ${isFocused ? 'url-input-wrapper--focused' : ''}`}>
-          {/* SSL Indicator */}
+        <div className={`url-input-wrapper ${isFocused ? 'url-input-wrapper--focused' : ''} ${isPrivate ? 'url-input-wrapper--private' : ''}`}>
+          {/* SSL / Incognito Indicator */}
           <span className={`ssl-indicator ${secure ? 'ssl-indicator--secure' : 'ssl-indicator--insecure'}`}>
-            {secure ? '🔒' : '🔓'}
+            {isPrivate ? '🕶️' : secure ? '🔒' : '🔓'}
           </span>
 
           <input
@@ -162,11 +165,25 @@ const AddressBar: React.FC<AddressBarProps> = ({
             onFocus={handleFocus}
             onBlur={handleBlur}
             onKeyDown={handleKeyDown}
-            placeholder="Search or enter URL"
+            placeholder={isPrivate ? "Search privately or enter URL" : "Search or enter URL"}
             spellCheck={false}
             autoComplete="off"
             id="url-input"
           />
+
+          {/* Quick Action Icons */}
+          <div className="url-actions">
+            {onFindClick && (
+              <button type="button" className="url-action-btn" onClick={onFindClick} title="Find in page (Ctrl+F)">
+                🔍
+              </button>
+            )}
+            {onDevToolsClick && (
+              <button type="button" className="url-action-btn" onClick={onDevToolsClick} title="Toggle Developer Tools (F12)">
+                🛠️
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Loading progress bar */}

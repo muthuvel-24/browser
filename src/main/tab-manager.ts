@@ -13,11 +13,12 @@
  * - Scroll position capture and restoration
  */
 
-import { WebContentsView, session, type BaseWindow } from 'electron';
+import { WebContentsView, session, Menu, type BaseWindow } from 'electron';
 import { randomUUID } from 'node:crypto';
-import type { TabRecord, TabInfo, TabStatus } from './types';
+import type { TabRecord, TabInfo, TabStatus, FindMatchInfo } from './types';
 import { getSpeedDialHtml } from './speeddial-html';
 import { stripTrackingParams } from './url-utils';
+import { IPC } from '../shared/ipc-channels';
 
 /** Height in pixels reserved for the toolbar UI at the top */
 const TOOLBAR_HEIGHT = 82;
@@ -71,12 +72,12 @@ export class TabManager {
    * Create a new tab and optionally navigate to a URL.
    * Returns the new tab's ID.
    */
-  createTab(url?: string): string {
+  createTab(url?: string, isPrivate = false): string {
     const tabId = generateTabId();
     const targetUrl = url ?? NEW_TAB_URL;
+    const partitionName = isPrivate ? `incognito:${tabId}` : 'persist:muthu';
 
     // Create a new WebContentsView with sandboxed, isolated web preferences
-    // Using persist:muthu partition enables cookie/localStorage persistence across sessions
     const view = new WebContentsView({
       webPreferences: {
         sandbox: true,
@@ -84,24 +85,24 @@ export class TabManager {
         nodeIntegration: false,
         webgl: true,
         spellcheck: true,
-        partition: 'persist:muthu',
+        partition: partitionName,
       },
     });
 
-    // Set Chrome-like User-Agent on the persistent partition session too
-    const tabSession = session.fromPartition('persist:muthu');
+    // Set Chrome-like User-Agent on session
+    const tabSession = session.fromPartition(partitionName);
     tabSession.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36');
-
     view.webContents.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36');
 
     // Create the tab record
     const record: TabRecord = {
       id: tabId,
       url: targetUrl,
-      title: 'New Tab',
+      title: isPrivate ? 'Private Tab' : 'New Tab',
       favicon: '',
       status: 'active',
       isLoading: true,
+      isPrivate,
       lastActiveTime: Date.now(),
       scrollPosition: { x: 0, y: 0 },
       historyEntries: [],
@@ -409,7 +410,8 @@ export class TabManager {
       }
     }
 
-    // Create fresh WebContentsView with same persistent partition
+    const partitionName = record.isPrivate ? `incognito:${tabId}` : 'persist:muthu';
+    // Create fresh WebContentsView
     const view = new WebContentsView({
       webPreferences: {
         sandbox: true,
@@ -417,7 +419,7 @@ export class TabManager {
         nodeIntegration: false,
         webgl: true,
         spellcheck: true,
-        partition: 'persist:muthu',
+        partition: partitionName,
       },
     });
 
@@ -577,17 +579,162 @@ export class TabManager {
       }
     });
 
+    // Handle Find in Page results
+    wc.on('found-in-page', (_event, result) => {
+      if (this.toolbarView && !this.toolbarView.webContents.isDestroyed()) {
+        const matchInfo: FindMatchInfo = {
+          activeMatchOrdinal: result.activeMatchOrdinal,
+          matches: result.matches,
+          finalUpdate: result.finalUpdate,
+        };
+        this.toolbarView.webContents.send(IPC.FIND_MATCH, matchInfo);
+      }
+    });
+
+    // Right-click context menu (Chrome style)
+    wc.on('context-menu', (_event, params) => {
+      const template: Electron.MenuItemConstructorOptions[] = [];
+
+      if (params.linkURL) {
+        template.push(
+          {
+            label: 'Open Link in New Tab',
+            click: () => this.createTab(params.linkURL),
+          },
+          {
+            label: 'Open Link in Private Tab',
+            click: () => this.createTab(params.linkURL, true),
+          },
+          {
+            label: 'Copy Link Address',
+            click: () => wc.copy(),
+          },
+          { type: 'separator' }
+        );
+      }
+
+      if (params.isEditable) {
+        template.push(
+          { role: 'undo' },
+          { role: 'redo' },
+          { type: 'separator' },
+          { role: 'cut' },
+          { role: 'copy' },
+          { role: 'paste' },
+          { role: 'selectAll' },
+          { type: 'separator' }
+        );
+      } else if (params.selectionText) {
+        template.push(
+          { role: 'copy' },
+          {
+            label: `Search Google for "${params.selectionText.substring(0, 20)}..."`,
+            click: () => this.createTab(`https://www.google.com/search?q=${encodeURIComponent(params.selectionText)}`),
+          },
+          { type: 'separator' }
+        );
+      }
+
+      template.push(
+        {
+          label: 'Back',
+          enabled: wc.navigationHistory.canGoBack(),
+          click: () => wc.navigationHistory.goBack(),
+        },
+        {
+          label: 'Forward',
+          enabled: wc.navigationHistory.canGoForward(),
+          click: () => wc.navigationHistory.goForward(),
+        },
+        {
+          label: 'Reload',
+          click: () => wc.reload(),
+        },
+        { type: 'separator' },
+        {
+          label: 'Inspect Element',
+          click: () => wc.inspectElement(params.x, params.y),
+        }
+      );
+
+      const menu = Menu.buildFromTemplate(template);
+      menu.popup();
+    });
+
     // Handle new window requests — open OAuth/auth popups in new tabs
     // Google, Claude, and other services need popup windows for sign-in
     wc.setWindowOpenHandler(({ url }) => {
-      // Allow about:blank popups (used by OAuth flows) to open natively
       if (url === 'about:blank') {
         return { action: 'allow' };
       }
-      // For all other URLs, redirect into a new browser tab
       this.createTab(url);
       return { action: 'deny' };
     });
+  }
+
+  // ─── Find in Page ───────────────────────────────────────────────
+
+  findInPage(text: string, options?: { forward?: boolean; findNext?: boolean }): void {
+    if (!this.activeTabId) return;
+    const view = this.views.get(this.activeTabId);
+    if (view && !view.webContents.isDestroyed()) {
+      view.webContents.findInPage(text, options);
+    }
+  }
+
+  findStop(action: 'clearSelection' | 'keepSelection' | 'activateSelection' = 'clearSelection'): void {
+    if (!this.activeTabId) return;
+    const view = this.views.get(this.activeTabId);
+    if (view && !view.webContents.isDestroyed()) {
+      view.webContents.stopFindInPage(action);
+    }
+  }
+
+  // ─── Zoom & DevTools Controls ──────────────────────────────────
+
+  zoomIn(): number {
+    if (!this.activeTabId) return 1;
+    const view = this.views.get(this.activeTabId);
+    if (view && !view.webContents.isDestroyed()) {
+      const current = view.webContents.getZoomFactor();
+      const next = Math.min(current + 0.1, 3.0);
+      view.webContents.setZoomFactor(next);
+      return next;
+    }
+    return 1;
+  }
+
+  zoomOut(): number {
+    if (!this.activeTabId) return 1;
+    const view = this.views.get(this.activeTabId);
+    if (view && !view.webContents.isDestroyed()) {
+      const current = view.webContents.getZoomFactor();
+      const next = Math.max(current - 0.1, 0.3);
+      view.webContents.setZoomFactor(next);
+      return next;
+    }
+    return 1;
+  }
+
+  zoomReset(): number {
+    if (!this.activeTabId) return 1;
+    const view = this.views.get(this.activeTabId);
+    if (view && !view.webContents.isDestroyed()) {
+      view.webContents.setZoomFactor(1.0);
+    }
+    return 1;
+  }
+
+  toggleDevTools(): void {
+    if (!this.activeTabId) return;
+    const view = this.views.get(this.activeTabId);
+    if (view && !view.webContents.isDestroyed()) {
+      if (view.webContents.isDevToolsOpened()) {
+        view.webContents.closeDevTools();
+      } else {
+        view.webContents.openDevTools({ mode: 'detach' });
+      }
+    }
   }
 
   /**
@@ -643,6 +790,7 @@ export class TabManager {
         isLoading: record.isLoading,
         canGoBack: isAlive ? view.webContents.navigationHistory.canGoBack() : false,
         canGoForward: isAlive ? view.webContents.navigationHistory.canGoForward() : false,
+        isPrivate: record.isPrivate ?? false,
       });
     }
     return result;
