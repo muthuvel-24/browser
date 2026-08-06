@@ -1,0 +1,179 @@
+/*
+ * Muthu Browser — Opera / Opera GX Theme & Styles
+ *
+ * Design tokens (Opera GX Dark Mode):
+ *   --bg-primary:     #07070c   (Obsidian Black)
+ *   --bg-secondary:   #12121c   (Opera Dark Metal)
+ *   --bg-tertiary:    #1d1d2b   (Muted Charcoal)
+ *   --opera-red:      #ff1b51   (Opera GX Signature Neon Red)
+ *   --opera-cyan:     #00f0ff   (Opera Cyber Cyan)
+ *   --accent-primary: #ff1b51   (Opera Red Accent)
+ *   --accent-green:   #00ff88   (Connected / Success)
+ *   --accent-red:     #ff1b51   (Error / Blocked)
+ *   --accent-orange:  #ffaa00   (Warning / Sleeping)
+ *   --text-primary:   #f0f0f5   (Bright Chrome White)
+ *   --text-secondary: #9090a8   (Muted Steel)
+ *   --glass-bg:       rgba(255, 27, 81, 0.05)
+ *   --glass-border:   rgba(255, 27, 81, 0.15)
+ */
+
+:root {
+  --bg-primary: #07070c;
+  --bg-secondary: #12121c;
+  --bg-tertiary: #1d1d2b;
+  --opera-red: #ff1b51;
+  --opera-cyan: #00f0ff;
+  --accent-primary: #ff1b51;
+  --accent-green: #00ff88;
+  --accent-red: #ff1b51;
+  --accent-orange: #ffaa00;
+  --text-primary: #f0f0f5;
+  --text-secondary: #9090a8;
+  --glass-bg: rgba(255, 255, 255, 0.04);
+  --glass-border: rgba(255, 255, 255, 0.08);
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 20px; /* Opera GX Pill Style */
+  --transition-fast: 150ms ease-out;
+  --transition-normal: 250ms ease-out;
+}
+
+/* ─── Reset & Base ─────────────────────────────────────────────── */
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html, body, #root {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size: 13px;
+  line-height: 1.4;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  user-select: none;
+  -webkit-app-region: no-drag;
+}
+
+/* ─── App Shell (Opera Layout) ─────────────────────────────────── */
+
+.app-shell {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 82px;
+  background: var(--bg-primary);
+  overflow: hidden;
+  border-bottom: 1px solid var(--glass-border);
+}
+
+/* ─── Toolbar Row (Address Bar + Opera Actions) ────────────────── */
+
+.toolbar-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 10px 8px 10px;
+  height: 44px;
+  flex-shrink: 0;
+  background: var(--bg-primary);
+}
+
+.toolbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+/* Opera Menu Button (Red "O" Icon) */
+.opera-menu-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  background: linear-gradient(135deg, #ff1b51, #d00036);
+  color: #fff;
+  font-size: 15px;
+  font-weight: 800;
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+  box-shadow: 0 0 10px rgba(255, 27, 81, 0.4);
+  transition: transform var(--transition-fast), box-shadow var(--transition-fast);
+  margin-right: 4px;
+  flex-shrink: 0;
+}
+
+.opera-menu-btn:hover {
+  transform: scale(1.08);
+  box-shadow: 0 0 16px rgba(255, 27, 81, 0.7);
+}
+
+/* Quick Access AI / Claude Shortcut Button */
+.opera-ai-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 10px;
+  height: 28px;
+  background: rgba(0, 240, 255, 0.08);
+  border: 1px solid rgba(0, 240, 255, 0.25);
+  border-radius: var(--radius-lg);
+  color: var(--opera-cyan);
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  flex-shrink: 0;
+}
+
+.opera-ai-btn:hover {
+  background: rgba(0, 240, 255, 0.18);
+  box-shadow: 0 0 10px rgba(0, 240, 255, 0.3);
+}
+
+/* ─── Scrollbar Styling ────────────────────────────────────────── */
+
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--bg-tertiary);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--opera-red);
+}
+
+/* ─── Animations ───────────────────────────────────────────────── */
+
+@keyframes pulse-glow {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
+@keyframes slide-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

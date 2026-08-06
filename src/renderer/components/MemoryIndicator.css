@@ -1,0 +1,58 @@
+/* MemoryIndicator — Leaf icon with optimization count */
+
+.memory-indicator {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 28px;
+  border-radius: var(--radius-sm);
+  cursor: default;
+  transition: background var(--transition-fast);
+}
+
+.memory-indicator:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+/* Active state — leaf is "alive" */
+.memory-indicator--active .memory-icon {
+  animation: gentle-sway 3s ease-in-out infinite;
+}
+
+@keyframes gentle-sway {
+  0%, 100% { transform: rotate(0deg); }
+  25% { transform: rotate(5deg); }
+  75% { transform: rotate(-5deg); }
+}
+
+/* ── Icon ───────────────────────────────────────────────────────── */
+
+.memory-icon {
+  font-size: 15px;
+  line-height: 1;
+  transition: transform var(--transition-normal);
+}
+
+/* ── Count Badge ────────────────────────────────────────────────── */
+
+.memory-count {
+  position: absolute;
+  top: 0px;
+  right: -2px;
+  min-width: 16px;
+  height: 14px;
+  padding: 0 3px;
+  font-size: 9px;
+  font-weight: 700;
+  font-family: inherit;
+  color: #fff;
+  background: var(--accent-green);
+  border-radius: 7px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  box-shadow: 0 0 6px rgba(0, 255, 136, 0.3);
+}

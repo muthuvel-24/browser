@@ -1,0 +1,137 @@
+/* VpnToggle — Animated switch with region selector */
+
+.vpn-toggle {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* ── State modifiers ────────────────────────────────────────────── */
+
+.vpn--connected .vpn-switch-track {
+  background: var(--accent-green);
+  box-shadow: 0 0 10px rgba(0, 255, 136, 0.3);
+}
+
+.vpn--connecting .vpn-switch-track {
+  background: var(--accent-orange);
+  animation: pulse-glow 1s ease-in-out infinite;
+}
+
+.vpn--error .vpn-switch-track {
+  background: var(--accent-red);
+  box-shadow: 0 0 10px rgba(255, 68, 102, 0.3);
+}
+
+.vpn--disconnected .vpn-switch-track {
+  background: var(--bg-tertiary);
+}
+
+/* ── Region Button ──────────────────────────────────────────────── */
+
+.vpn-region-wrapper {
+  position: relative;
+}
+
+.vpn-region-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  font-size: 14px;
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background var(--transition-fast), border-color var(--transition-fast);
+}
+
+.vpn-region-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.15);
+}
+
+/* ── Dropdown ───────────────────────────────────────────────────── */
+
+.vpn-dropdown {
+  position: absolute;
+  top: 34px;
+  right: 0;
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  min-width: 110px;
+  padding: 4px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+  animation: slide-in 0.15s ease-out;
+}
+
+.vpn-dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  font-size: 12px;
+  font-family: inherit;
+  color: var(--text-secondary);
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background var(--transition-fast), color var(--transition-fast);
+  text-align: left;
+}
+
+.vpn-dropdown-item:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text-primary);
+}
+
+.vpn-dropdown-item--active {
+  color: var(--accent-primary);
+  background: rgba(0, 212, 255, 0.08);
+}
+
+/* ── Toggle Switch ──────────────────────────────────────────────── */
+
+.vpn-switch {
+  padding: 0;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  outline: none;
+}
+
+.vpn-switch:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+.vpn-switch-track {
+  position: relative;
+  width: 36px;
+  height: 20px;
+  border-radius: 10px;
+  transition: background var(--transition-normal), box-shadow var(--transition-normal);
+}
+
+.vpn-switch-thumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  background: #fff;
+  border-radius: 50%;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+  transition: transform var(--transition-normal);
+}
+
+.vpn-switch--on .vpn-switch-thumb {
+  transform: translateX(16px);
+}

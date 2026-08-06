@@ -1,0 +1,139 @@
+/* AddressBar — Opera GX style pill input */
+
+.address-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+  min-width: 0;
+}
+
+/* ── Navigation Buttons ─────────────────────────────────────────── */
+
+.nav-buttons {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.nav-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  font-size: 15px;
+  color: var(--text-secondary);
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.nav-btn:hover:not(:disabled) {
+  background: rgba(255, 27, 81, 0.12);
+  color: #fff;
+}
+
+.nav-btn:active:not(:disabled) {
+  background: rgba(255, 27, 81, 0.2);
+}
+
+.nav-btn:disabled {
+  opacity: 0.25;
+  cursor: not-allowed;
+}
+
+/* ── Opera Pill URL Input ───────────────────────────────────────── */
+
+.url-form {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+}
+
+.url-input-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 34px;
+  padding: 0 14px;
+  background: var(--bg-secondary);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: var(--radius-lg); /* Opera Pill Rounded */
+  transition: all var(--transition-normal);
+}
+
+.url-input-wrapper--focused {
+  border-color: var(--opera-red);
+  box-shadow: 0 0 0 2px rgba(255, 27, 81, 0.2), 0 0 16px rgba(255, 27, 81, 0.15);
+  background: var(--bg-tertiary);
+}
+
+.url-input {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  font-family: 'Inter', system-ui, sans-serif;
+  font-size: 12.5px;
+  font-weight: 400;
+  color: var(--text-primary);
+  background: transparent;
+  border: none;
+  outline: none;
+  caret-color: var(--opera-red);
+}
+
+.url-input::placeholder {
+  color: var(--text-secondary);
+  opacity: 0.5;
+}
+
+.url-input::selection {
+  background: rgba(255, 27, 81, 0.35);
+}
+
+/* ── SSL Indicator ──────────────────────────────────────────────── */
+
+.ssl-indicator {
+  font-size: 12px;
+  flex-shrink: 0;
+  line-height: 1;
+}
+
+.ssl-indicator--secure {
+  filter: hue-rotate(0deg);
+}
+
+.ssl-indicator--insecure {
+  opacity: 0.4;
+}
+
+/* ── Opera Red Loading Bar ──────────────────────────────────────── */
+
+.loading-bar {
+  position: absolute;
+  bottom: -1px;
+  left: 5%;
+  right: 5%;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--opera-red), var(--opera-cyan), transparent);
+  border-radius: 1px;
+  animation: loading-slide 1.2s ease-in-out infinite;
+}
+
+@keyframes loading-slide {
+  0% {
+    transform: translateX(-100%);
+    opacity: 0;
+  }
+  50% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+}

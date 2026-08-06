@@ -1,0 +1,201 @@
+/* TabBar — Opera GX style tab strip */
+
+.tab-bar {
+  display: flex;
+  align-items: flex-end;
+  height: 38px;
+  padding: 0 10px;
+  gap: 3px;
+  flex-shrink: 0;
+  overflow: hidden;
+  background: var(--bg-primary);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.tab-strip {
+  display: flex;
+  align-items: flex-end;
+  gap: 4px;
+  flex: 1;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+}
+
+.tab-strip::-webkit-scrollbar {
+  display: none;
+}
+
+/* ── Opera Tab Item ─────────────────────────────────────────────── */
+
+.tab-item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 90px;
+  max-width: 210px;
+  height: 32px;
+  padding: 0 10px 0 12px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-bottom: none;
+  border-radius: 8px 8px 0 0;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  flex-shrink: 0;
+}
+
+.tab-item:hover {
+  background: rgba(255, 27, 81, 0.08);
+  border-color: rgba(255, 27, 81, 0.2);
+}
+
+/* Active tab — Opera Red Glow */
+.tab-item--active {
+  background: var(--bg-secondary);
+  border-color: rgba(255, 27, 81, 0.3);
+}
+
+.tab-item--active .tab-title {
+  color: #fff;
+  font-weight: 600;
+}
+
+/* Sleeping tab */
+.tab-item--sleeping {
+  opacity: 0.6;
+}
+
+/* Discarded tab */
+.tab-item--discarded {
+  opacity: 0.4;
+}
+
+.tab-item--discarded .tab-title {
+  font-style: italic;
+}
+
+/* ── Active Indicator (Opera Red Glow Bar) ─────────────────────── */
+
+.tab-active-indicator {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--opera-red);
+  box-shadow: 0 0 10px var(--opera-red), 0 0 4px var(--opera-red);
+  border-radius: 2px 2px 0 0;
+}
+
+/* ── Favicon ────────────────────────────────────────────────────── */
+
+.tab-favicon {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.tab-favicon img {
+  width: 14px;
+  height: 14px;
+  border-radius: 2px;
+  object-fit: contain;
+}
+
+.tab-favicon-fallback {
+  font-size: 11px;
+  line-height: 1;
+}
+
+/* Loading spinner */
+.tab-spinner {
+  width: 12px;
+  height: 12px;
+  border: 2px solid rgba(255, 27, 81, 0.2);
+  border-top-color: var(--opera-red);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ── Title ──────────────────────────────────────────────────────── */
+
+.tab-title {
+  flex: 1;
+  font-size: 11.5px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: color var(--transition-fast);
+}
+
+.tab-status-icon {
+  margin-right: 3px;
+  font-size: 10px;
+}
+
+/* ── Close Button ───────────────────────────────────────────────── */
+
+.tab-close-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  font-size: 10px;
+  color: var(--text-secondary);
+  background: transparent;
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+  opacity: 0;
+  transition: all var(--transition-fast);
+  flex-shrink: 0;
+}
+
+.tab-item:hover .tab-close-btn {
+  opacity: 1;
+}
+
+.tab-close-btn:hover {
+  background: rgba(255, 27, 81, 0.25);
+  color: #fff;
+}
+
+/* ── New Tab Button ─────────────────────────────────────────────── */
+
+.tab-new-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  margin-left: 4px;
+  margin-bottom: 2px;
+  font-size: 16px;
+  font-weight: 400;
+  color: var(--text-secondary);
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  flex-shrink: 0;
+}
+
+.tab-new-btn:hover {
+  background: rgba(255, 27, 81, 0.15);
+  color: var(--opera-red);
+  border-color: rgba(255, 27, 81, 0.3);
+  box-shadow: 0 0 8px rgba(255, 27, 81, 0.3);
+}
