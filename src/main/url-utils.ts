@@ -150,8 +150,8 @@ export function normalizeUrl(input: string): string {
     return `http://${trimmed}`;
   }
 
-  // 5. Single word with no spaces (e.g., "mybrand" → "https://www.mybrand.com")
-  if (/^[a-zA-Z0-9-]+$/.test(trimmed)) {
+  // 5. Single word with no spaces and valid domain label length (<= 253 chars)
+  if (/^[a-zA-Z0-9-]+$/.test(trimmed) && trimmed.length <= 253) {
     return `https://www.${lower}.com`;
   }
 
