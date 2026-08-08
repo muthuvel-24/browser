@@ -103,7 +103,9 @@ const AddressBar: React.FC<AddressBarProps> = ({
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
-      return;
+      e.preventDefault();
+      e.stopPropagation();
+      triggerNavigation();
     } else if (e.key === 'Escape') {
       setInputValue(getDisplayUrl(url));
       inputRef.current?.blur();
@@ -173,13 +175,31 @@ const AddressBar: React.FC<AddressBarProps> = ({
 
           {/* Quick Action Icons */}
           <div className="url-actions">
+            <button
+              type="submit"
+              className="url-action-btn url-action-btn--submit"
+              onClick={triggerNavigation}
+              title="Search or Go (Enter)"
+            >
+              🔍
+            </button>
             {onFindClick && (
-              <button type="button" className="url-action-btn" onClick={onFindClick} title="Find in page (Ctrl+F)">
-                🔍
+              <button
+                type="button"
+                className="url-action-btn"
+                onClick={onFindClick}
+                title="Find in page (Ctrl+F)"
+              >
+                📄
               </button>
             )}
             {onDevToolsClick && (
-              <button type="button" className="url-action-btn" onClick={onDevToolsClick} title="Toggle Developer Tools (F12)">
+              <button
+                type="button"
+                className="url-action-btn"
+                onClick={onDevToolsClick}
+                title="Toggle Developer Tools (F12)"
+              >
                 🛠️
               </button>
             )}
