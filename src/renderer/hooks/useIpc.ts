@@ -161,37 +161,27 @@ export function useIpc(): IpcState & {
 
   const navigateTo = useCallback((url: string) => {
     const targetId = activeTabId || tabs.find((t) => t.status === 'active')?.id || tabs[0]?.id || '';
-    if (targetId) {
-      getApi()?.navigateTo(targetId, url).catch((err) => console.warn('[useIpc] navigateTo error:', err));
-    }
+    getApi()?.navigateTo(targetId, url).catch((err) => console.warn('[useIpc] navigateTo error:', err));
   }, [activeTabId, tabs]);
 
   const goBack = useCallback(() => {
     const targetId = activeTabId || tabs.find((t) => t.status === 'active')?.id || tabs[0]?.id || '';
-    if (targetId) {
-      getApi()?.goBack(targetId).catch((err) => console.warn('[useIpc] goBack error:', err));
-    }
+    getApi()?.goBack(targetId).catch((err) => console.warn('[useIpc] goBack error:', err));
   }, [activeTabId, tabs]);
 
   const goForward = useCallback(() => {
     const targetId = activeTabId || tabs.find((t) => t.status === 'active')?.id || tabs[0]?.id || '';
-    if (targetId) {
-      getApi()?.goForward(targetId).catch((err) => console.warn('[useIpc] goForward error:', err));
-    }
+    getApi()?.goForward(targetId).catch((err) => console.warn('[useIpc] goForward error:', err));
   }, [activeTabId, tabs]);
 
   const reload = useCallback(() => {
     const targetId = activeTabId || tabs.find((t) => t.status === 'active')?.id || tabs[0]?.id || '';
-    if (targetId) {
-      getApi()?.reload(targetId).catch((err) => console.warn('[useIpc] reload error:', err));
-    }
+    getApi()?.reload(targetId).catch((err) => console.warn('[useIpc] reload error:', err));
   }, [activeTabId, tabs]);
 
   const stopLoading = useCallback(() => {
     const targetId = activeTabId || tabs.find((t) => t.status === 'active')?.id || tabs[0]?.id || '';
-    if (targetId) {
-      getApi()?.stopLoading(targetId).catch((err) => console.warn('[useIpc] stopLoading error:', err));
-    }
+    getApi()?.stopLoading(targetId).catch((err) => console.warn('[useIpc] stopLoading error:', err));
   }, [activeTabId, tabs]);
 
   const vpnEnable = useCallback((region: string) => {

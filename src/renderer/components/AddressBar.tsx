@@ -60,24 +60,27 @@ const AddressBar: React.FC<AddressBarProps> = ({
 }) => {
   const [inputValue, setInputValue] = useState(getDisplayUrl(url));
   const [isFocused, setIsFocused] = useState(false);
+  const [pendingTarget, setPendingTarget] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Sync input value with active URL when user is NOT actively typing
+  // Sync input value with active URL when user is NOT actively typing or waiting for navigation
   useEffect(() => {
-    if (!isFocused) {
+    if (!isFocused && !pendingTarget) {
       setInputValue(getDisplayUrl(url));
     }
-  }, [url, isFocused]);
+  }, [url, isFocused, pendingTarget]);
 
-  // When the active tab changes, reset focus state and update displayed URL
+  // When the active tab or url changes from main process, reset pending target
   useEffect(() => {
+    setPendingTarget(null);
     setIsFocused(false);
     setInputValue(getDisplayUrl(url));
-  }, [activeTabId]);
+  }, [activeTabId, url]);
 
   const triggerNavigation = () => {
     const target = inputValue.trim();
     if (target) {
+      setPendingTarget(target);
       onNavigate(target);
       inputRef.current?.blur();
       window.muthuAPI?.focusContent();
