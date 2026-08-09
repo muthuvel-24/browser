@@ -6,7 +6,7 @@
  * - Omnibox toolbar with Back, Forward, Reload, Home, pill input, voice search, bookmark star
  * - Built-in AdBlocker shield counter & Chrome VPN control panel modal
  * - Horizontal bookmarks bar with favicons
- * - 100% full screen content viewport
+ * - Chrome Dark Mode New Tab Page Component inside main viewport
  */
 
 import React, { useState, useEffect } from 'react';
@@ -16,6 +16,7 @@ import AddressBar from './components/AddressBar';
 import BookmarksBar from './components/BookmarksBar';
 import VpnModal from './components/VpnModal';
 import FindBar from './components/FindBar';
+import ChromeNewTabPage from './components/ChromeNewTabPage';
 
 const App: React.FC = () => {
   const {
@@ -49,6 +50,9 @@ const App: React.FC = () => {
 
   // Find active tab
   const activeTab = tabs.find((t) => t.id === activeTabId);
+
+  // Check if active tab is speeddial/newtab page
+  const isSpeedDial = !activeTab || !activeTab.url || activeTab.url === 'speeddial' || activeTab.url === 'about:blank';
 
   // ─── Global Keyboard Shortcuts ───────────────────────────────
   useEffect(() => {
@@ -112,44 +116,52 @@ const App: React.FC = () => {
   }, [activeTabId, createTab, createPrivateTab, closeTab, reload, zoomIn, zoomOut, zoomReset, toggleDevTools]);
 
   return (
-    <div className="app-shell">
-      {/* ── 1. Chrome Tab Strip ── */}
-      <TabBar
-        tabs={tabs}
-        activeTabId={activeTabId}
-        onSwitchTab={switchTab}
-        onCloseTab={closeTab}
-        onNewTab={() => createTab()}
-        onNewPrivateTab={() => createPrivateTab()}
-      />
-
-      {/* ── 2. Chrome Omnibox & Navigation Row ── */}
-      <div className="toolbar-row">
-        <AddressBar
-          url={activeTab?.url ?? ''}
-          isLoading={activeTab?.isLoading ?? false}
-          canGoBack={activeTab?.canGoBack ?? false}
-          canGoForward={activeTab?.canGoForward ?? false}
-          activeTabId={activeTabId}
-          isPrivate={activeTab?.isPrivate}
-          adBlockStats={adBlockStats}
-          vpnStatus={vpnStatus}
-          onNavigate={navigateTo}
-          onBack={goBack}
-          onForward={goForward}
-          onReload={reload}
-          onStop={stopLoading}
-          onHome={() => createTab('speeddial')}
-          onToggleVpnModal={() => setShowVpnModal((prev) => !prev)}
-          onFindClick={() => setShowFindBar((prev) => !prev)}
-          onDevToolsClick={toggleDevTools}
+    <div style={{ display: 'flex', flexDirection: 'column', width: '100%', height: '100vh', overflow: 'hidden' }}>
+      {/* Chrome Top Toolbar Frame */}
+      <div className="app-shell">
+        {/* ── 1. Chrome Tab Strip ── */}
+        <TabBar
+          tabs={tabs.length > 0 ? tabs : [{ id: 'tab-1', url: 'speeddial', title: 'New Tab', favicon: '', status: 'active', isLoading: false, canGoBack: false, canGoForward: false, isPrivate: false }]}
+          activeTabId={activeTabId || 'tab-1'}
+          onSwitchTab={switchTab}
+          onCloseTab={closeTab}
+          onNewTab={() => createTab()}
+          onNewPrivateTab={() => createPrivateTab()}
         />
+
+        {/* ── 2. Chrome Omnibox & Navigation Row ── */}
+        <div className="toolbar-row">
+          <AddressBar
+            url={activeTab?.url ?? ''}
+            isLoading={activeTab?.isLoading ?? false}
+            canGoBack={activeTab?.canGoBack ?? false}
+            canGoForward={activeTab?.canGoForward ?? false}
+            activeTabId={activeTabId}
+            isPrivate={activeTab?.isPrivate}
+            adBlockStats={adBlockStats}
+            vpnStatus={vpnStatus}
+            onNavigate={navigateTo}
+            onBack={goBack}
+            onForward={goForward}
+            onReload={reload}
+            onStop={stopLoading}
+            onHome={() => createTab('speeddial')}
+            onToggleVpnModal={() => setShowVpnModal((prev) => !prev)}
+            onFindClick={() => setShowFindBar((prev) => !prev)}
+            onDevToolsClick={toggleDevTools}
+          />
+        </div>
+
+        {/* ── 3. Chrome Horizontal Bookmarks Bar ── */}
+        <BookmarksBar onNavigate={navigateTo} />
       </div>
 
-      {/* ── 3. Chrome Horizontal Bookmarks Bar ── */}
-      <BookmarksBar onNavigate={navigateTo} />
+      {/* ── 4. Main Viewport (Renders Chrome New Tab Page when on speeddial) ── */}
+      {isSpeedDial && (
+        <ChromeNewTabPage onNavigate={navigateTo} />
+      )}
 
-      {/* ── 4. Find in Page Overlay ── */}
+      {/* ── 5. Find in Page Overlay ── */}
       {showFindBar && (
         <FindBar
           matchInfo={findMatchInfo}
@@ -161,7 +173,7 @@ const App: React.FC = () => {
         />
       )}
 
-      {/* ── 5. Chrome VPN Dropdown Control Panel Modal ── */}
+      {/* ── 6. Chrome VPN Dropdown Control Panel Modal ── */}
       {showVpnModal && vpnStatus && (
         <VpnModal
           status={vpnStatus}
