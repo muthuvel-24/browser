@@ -1,19 +1,19 @@
-/* AddressBar — Opera GX style pill input */
+/* AddressBar — JioSphere Mobile Browser Floating Omnibox */
 
 .address-bar {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   flex: 1;
   min-width: 0;
 }
 
-/* ── Navigation Buttons ─────────────────────────────────────────── */
+/* ── Navigation Control Buttons ─────────────────────────────────── */
 
 .nav-buttons {
   display: flex;
   align-items: center;
-  gap: 2px;
+  gap: 4px;
   flex-shrink: 0;
 }
 
@@ -21,24 +21,25 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 30px;
-  height: 30px;
-  font-size: 15px;
+  width: 32px;
+  height: 32px;
+  font-size: 14px;
   color: var(--text-secondary);
   background: transparent;
   border: none;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-circle);
   cursor: pointer;
   transition: all var(--transition-fast);
 }
 
 .nav-btn:hover:not(:disabled) {
-  background: rgba(255, 27, 81, 0.12);
-  color: #fff;
+  background: rgba(0, 102, 255, 0.15);
+  color: #ffffff;
 }
 
 .nav-btn:active:not(:disabled) {
-  background: rgba(255, 27, 81, 0.2);
+  background: rgba(0, 102, 255, 0.3);
+  transform: scale(0.95);
 }
 
 .nav-btn:disabled {
@@ -46,7 +47,7 @@
   cursor: not-allowed;
 }
 
-/* ── Opera Pill URL Input ───────────────────────────────────────── */
+/* ── JioSphere Pill Omnibox Input ───────────────────────────────── */
 
 .url-form {
   position: relative;
@@ -57,18 +58,19 @@
 .url-input-wrapper {
   display: flex;
   align-items: center;
-  gap: 8px;
-  height: 34px;
-  padding: 0 14px;
+  gap: 10px;
+  height: 38px;
+  padding: 0 16px;
   background: var(--bg-secondary);
   border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: var(--radius-lg); /* Opera Pill Rounded */
+  border-radius: var(--radius-pill); /* JioSphere 9999px Pill */
   transition: all var(--transition-normal);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
 }
 
 .url-input-wrapper--focused {
-  border-color: var(--opera-red);
-  box-shadow: 0 0 0 2px rgba(255, 27, 81, 0.2), 0 0 16px rgba(255, 27, 81, 0.15);
+  border-color: var(--jio-blue);
+  box-shadow: 0 0 0 2px rgba(0, 102, 255, 0.25), 0 4px 20px rgba(0, 102, 255, 0.2);
   background: var(--bg-tertiary);
 }
 
@@ -77,84 +79,102 @@
   min-width: 0;
   height: 100%;
   font-family: 'Inter', system-ui, sans-serif;
-  font-size: 12.5px;
+  font-size: 13px;
   font-weight: 400;
   color: var(--text-primary);
   background: transparent;
   border: none;
   outline: none;
-  caret-color: var(--opera-red);
+  caret-color: var(--jio-blue);
 }
 
 .url-input::placeholder {
   color: var(--text-secondary);
-  opacity: 0.5;
+  opacity: 0.65;
 }
 
 .url-input::selection {
-  background: rgba(255, 27, 81, 0.35);
+  background: rgba(0, 102, 255, 0.4);
 }
 
 .url-input-wrapper--private {
-  border-color: rgba(150, 60, 255, 0.3);
+  border-color: rgba(255, 145, 0, 0.4);
+  background: rgba(30, 20, 10, 0.6);
 }
 
 .url-input-wrapper--private.url-input-wrapper--focused {
-  border-color: #963cff;
-  box-shadow: 0 0 0 2px rgba(150, 60, 255, 0.25), 0 0 16px rgba(150, 60, 255, 0.2);
+  border-color: var(--accent-orange);
+  box-shadow: 0 0 0 2px rgba(255, 145, 0, 0.3), 0 4px 20px rgba(255, 145, 0, 0.2);
 }
 
-/* ── URL Action Buttons ─────────────────────────────────────────── */
+/* ── Omnibox Action Icons (Mic, Star, Search, DevTools) ─────────── */
 
 .url-actions {
   display: flex;
   align-items: center;
-  gap: 2px;
+  gap: 4px;
   flex-shrink: 0;
 }
 
 .url-action-btn {
   background: transparent;
   border: none;
-  font-size: 13px;
+  font-size: 14px;
   cursor: pointer;
-  padding: 2px 5px;
-  border-radius: 4px;
-  opacity: 0.6;
+  padding: 4px 6px;
+  border-radius: var(--radius-circle);
+  opacity: 0.7;
+  color: var(--text-secondary);
   transition: all var(--transition-fast);
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .url-action-btn:hover {
   opacity: 1;
-  background: rgba(255, 255, 255, 0.1);
+  color: var(--jio-blue);
+  background: rgba(0, 102, 255, 0.12);
 }
 
-/* ── SSL Indicator ──────────────────────────────────────────────── */
+.url-action-btn--submit {
+  color: var(--jio-blue);
+  opacity: 1;
+}
+
+.url-action-btn--starred {
+  color: #FFB800;
+  opacity: 1;
+}
+
+/* ── SSL Security Lock Indicator ────────────────────────────────── */
 
 .ssl-indicator {
-  font-size: 12px;
+  font-size: 13px;
   flex-shrink: 0;
   line-height: 1;
+  display: flex;
+  align-items: center;
 }
 
 .ssl-indicator--secure {
-  filter: hue-rotate(0deg);
+  color: var(--accent-green);
 }
 
 .ssl-indicator--insecure {
-  opacity: 0.4;
+  opacity: 0.5;
 }
 
-/* ── Opera Red Loading Bar ──────────────────────────────────────── */
+/* ── JioSphere Blue Progress Loading Bar ────────────────────────── */
 
 .loading-bar {
   position: absolute;
-  bottom: -1px;
-  left: 5%;
-  right: 5%;
-  height: 2px;
-  background: linear-gradient(90deg, transparent, var(--opera-red), var(--opera-cyan), transparent);
-  border-radius: 1px;
+  bottom: -2px;
+  left: 10px;
+  right: 10px;
+  height: 2.5px;
+  background: linear-gradient(90deg, transparent, var(--jio-blue), #00E5FF, transparent);
+  border-radius: 2px;
   animation: loading-slide 1.2s ease-in-out infinite;
 }
 

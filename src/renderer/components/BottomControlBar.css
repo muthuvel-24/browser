@@ -1,0 +1,120 @@
+/* JioSphere Bottom Action Toolbar & Quick Options Drawer */
+
+.jio-bottom-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  height: 44px;
+  background: var(--bg-primary);
+  border-top: 1px solid var(--glass-border);
+  padding: 0 16px;
+  flex-shrink: 0;
+  z-index: 100;
+}
+
+.jio-bar-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 36px;
+  padding: 0 12px;
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 16px;
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  transition: all var(--transition-fast);
+  position: relative;
+}
+
+.jio-bar-btn:hover:not(:disabled) {
+  background: rgba(0, 102, 255, 0.12);
+  color: var(--jio-blue);
+}
+
+.jio-bar-btn:active:not(:disabled) {
+  transform: scale(0.95);
+}
+
+.jio-bar-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+/* JioSphere Tab Counter Badge */
+.jio-tab-badge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border: 2px solid var(--text-secondary);
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-primary);
+  transition: all var(--transition-fast);
+}
+
+.jio-bar-btn:hover .jio-tab-badge {
+  border-color: var(--jio-blue);
+  color: var(--jio-blue);
+  background: rgba(0, 102, 255, 0.1);
+}
+
+/* Quick Menu Drawer Overlay */
+.quick-menu-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 999;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(8px);
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  animation: fade-up-drawer 0.2s ease-out;
+}
+
+@keyframes fade-up-drawer {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.quick-menu-card {
+  background: var(--bg-secondary);
+  border-top: 1px solid var(--glass-border);
+  border-radius: 20px 20px 0 0;
+  padding: 20px;
+  box-shadow: 0 -8px 32px rgba(0, 0, 0, 0.5);
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+}
+
+.menu-item-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 8px;
+  background: var(--bg-tertiary);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.menu-item-btn:hover {
+  background: rgba(0, 102, 255, 0.15);
+  border-color: var(--jio-blue);
+  color: #ffffff;
+  transform: translateY(-2px);
+}
+
+.menu-item-icon {
+  font-size: 20px;
+}

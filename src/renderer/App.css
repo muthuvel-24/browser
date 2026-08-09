@@ -1,41 +1,43 @@
 /*
- * Muthu Browser — Opera / Opera GX Theme & Styles
+ * Muthu Browser — JioSphere Mobile Browser UI Theme & Styles
  *
- * Design tokens (Opera GX Dark Mode):
- *   --bg-primary:     #07070c   (Obsidian Black)
- *   --bg-secondary:   #12121c   (Opera Dark Metal)
- *   --bg-tertiary:    #1d1d2b   (Muted Charcoal)
- *   --opera-red:      #ff1b51   (Opera GX Signature Neon Red)
- *   --opera-cyan:     #00f0ff   (Opera Cyber Cyan)
- *   --accent-primary: #ff1b51   (Opera Red Accent)
- *   --accent-green:   #00ff88   (Connected / Success)
- *   --accent-red:     #ff1b51   (Error / Blocked)
- *   --accent-orange:  #ffaa00   (Warning / Sleeping)
- *   --text-primary:   #f0f0f5   (Bright Chrome White)
- *   --text-secondary: #9090a8   (Muted Steel)
- *   --glass-bg:       rgba(255, 27, 81, 0.05)
- *   --glass-border:   rgba(255, 27, 81, 0.15)
+ * Design Tokens (JioSphere Dark Language):
+ *   --bg-primary:     #0B0E14   (Deep Slate Black)
+ *   --bg-secondary:   #161B22   (Dark Grey Container Card)
+ *   --bg-tertiary:    #1F242D   (Elevated Card Surface)
+ *   --jio-blue:       #0066FF   (Vibrant JioSphere Signature Blue)
+ *   --jio-blue-hover: #0052CC   (Jio Blue Hover)
+ *   --jio-accent:     #0A66C2   (Secondary Blue Highlight)
+ *   --accent-green:   #00E676   (Secure / Connected)
+ *   --accent-red:     #FF3D00   (Blocked / Error)
+ *   --accent-orange:  #FF9100   (Warning / Incognito)
+ *   --text-primary:   #F0F6FC   (Crisp High-Legibility White)
+ *   --text-secondary: #8B949E   (Muted Slate Grey)
+ *   --glass-bg:       rgba(22, 27, 34, 0.85)
+ *   --glass-border:   rgba(255, 255, 255, 0.1)
  */
 
 :root {
-  --bg-primary: #07070c;
-  --bg-secondary: #12121c;
-  --bg-tertiary: #1d1d2b;
-  --opera-red: #ff1b51;
-  --opera-cyan: #00f0ff;
-  --accent-primary: #ff1b51;
-  --accent-green: #00ff88;
-  --accent-red: #ff1b51;
-  --accent-orange: #ffaa00;
-  --text-primary: #f0f0f5;
-  --text-secondary: #9090a8;
-  --glass-bg: rgba(255, 255, 255, 0.04);
-  --glass-border: rgba(255, 255, 255, 0.08);
-  --radius-sm: 6px;
-  --radius-md: 10px;
-  --radius-lg: 20px; /* Opera GX Pill Style */
-  --transition-fast: 150ms ease-out;
-  --transition-normal: 250ms ease-out;
+  --bg-primary: #0B0E14;
+  --bg-secondary: #161B22;
+  --bg-tertiary: #1F242D;
+  --jio-blue: #0066FF;
+  --jio-blue-hover: #0052CC;
+  --jio-accent: #0A66C2;
+  --accent-green: #00E676;
+  --accent-red: #FF3D00;
+  --accent-orange: #FF9100;
+  --text-primary: #F0F6FC;
+  --text-secondary: #8B949E;
+  --glass-bg: rgba(22, 27, 34, 0.85);
+  --glass-border: rgba(255, 255, 255, 0.1);
+  --radius-sm: 8px;
+  --radius-md: 14px;
+  --radius-lg: 20px;
+  --radius-pill: 9999px;
+  --radius-circle: 50%;
+  --transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-normal: 250ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 /* ─── Reset & Base ─────────────────────────────────────────────── */

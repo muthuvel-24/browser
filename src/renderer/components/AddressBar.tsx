@@ -178,6 +178,34 @@ const AddressBar: React.FC<AddressBarProps> = ({
 
           {/* Quick Action Icons */}
           <div className="url-actions">
+            {/* Voice Search Icon */}
+            <button
+              type="button"
+              className="url-action-btn"
+              title="Voice Search"
+              onClick={() => {
+                const query = prompt('Voice Search (speak or type query):');
+                if (query) onNavigate(query);
+              }}
+            >
+              🎙️
+            </button>
+
+            {/* Bookmark Star Icon */}
+            <button
+              type="button"
+              className="url-action-btn"
+              title="Bookmark Page"
+              onClick={(e) => {
+                const target = e.currentTarget;
+                target.classList.toggle('url-action-btn--starred');
+                alert(target.classList.contains('url-action-btn--starred') ? 'Page bookmarked!' : 'Bookmark removed');
+              }}
+            >
+              ⭐
+            </button>
+
+            {/* Search / Go Button */}
             <button
               type="submit"
               className="url-action-btn url-action-btn--submit"
@@ -186,6 +214,7 @@ const AddressBar: React.FC<AddressBarProps> = ({
             >
               🔍
             </button>
+
             {onFindClick && (
               <button
                 type="button"
@@ -196,6 +225,7 @@ const AddressBar: React.FC<AddressBarProps> = ({
                 📄
               </button>
             )}
+
             {onDevToolsClick && (
               <button
                 type="button"

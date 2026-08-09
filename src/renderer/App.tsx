@@ -1,18 +1,18 @@
 /**
- * Muthu Browser — Root App Component (Opera GX UI Theme)
+ * Muthu Browser — Root App Component (JioSphere UI Theme)
  *
- * Opera-style chrome layout with:
- * - Opera "O" red logo menu button
- * - Chrome-style tab strip with Opera red active indicators
- * - Opera pill-shaped address bar
- * - Quick AI Chat button ("🤖 Claude AI")
- * - Opera GX status indicators (VPN, AdBlock, Memory Saver)
+ * JioSphere-style layout with:
+ * - Floating Omnibox with HTTPS lock, Voice Mic, and Bookmark Star
+ * - Fixed JioSphere 5-action Bottom Control Bar (Back, Forward, Home, Tab Badge Counter, 3-Dot Menu)
+ * - Tab Switcher Grid Overlay with preview cards and floating (+) Action Button
+ * - Deep Slate Dark Theme (#0B0E14) & JioSphere Blue Highlights (#0066FF)
  */
 
 import React, { useState, useEffect } from 'react';
 import { useIpc } from './hooks/useIpc';
-import TabBar from './components/TabBar';
 import AddressBar from './components/AddressBar';
+import BottomControlBar from './components/BottomControlBar';
+import TabSwitcherModal from './components/TabSwitcherModal';
 import VpnToggle from './components/VpnToggle';
 import AdBlockStats from './components/AdBlockStats';
 import MemoryIndicator from './components/MemoryIndicator';
@@ -48,8 +48,9 @@ const App: React.FC = () => {
   } = useIpc();
 
   const [showFindBar, setShowFindBar] = useState(false);
+  const [showTabSwitcher, setShowTabSwitcher] = useState(false);
 
-  // Find the active tab for address bar state
+  // Find active tab state
   const activeTab = tabs.find((t) => t.id === activeTabId);
 
   // ─── Global Keyboard Shortcuts ───────────────────────────────
@@ -115,28 +116,19 @@ const App: React.FC = () => {
 
   return (
     <div className="app-shell">
-      {/* ── Opera Tab Strip ── */}
-      <TabBar
-        tabs={tabs}
-        activeTabId={activeTabId}
-        onSwitchTab={switchTab}
-        onCloseTab={closeTab}
-        onNewTab={() => createTab()}
-        onNewPrivateTab={() => createPrivateTab()}
-      />
-
-      {/* ── Opera Toolbar Row ── */}
+      {/* ── Top Floating JioSphere Omnibox Row ── */}
       <div className="toolbar-row">
-        {/* Opera "O" Menu Button */}
+        {/* JioSphere Logo / Home Trigger */}
         <button
           className="opera-menu-btn"
-          title="Opera Speed Dial Start Page (New Tab)"
+          style={{ background: 'linear-gradient(135deg, #0066FF, #0040A8)', boxShadow: '0 0 10px rgba(0, 102, 255, 0.4)' }}
+          title="JioSphere Home Start Page"
           onClick={() => createTab('speeddial')}
         >
-          O
+          J
         </button>
 
-        {/* Opera Address Bar */}
+        {/* Floating Address Bar */}
         <AddressBar
           url={activeTab?.url ?? ''}
           isLoading={activeTab?.isLoading ?? false}
@@ -153,16 +145,7 @@ const App: React.FC = () => {
           onDevToolsClick={toggleDevTools}
         />
 
-        {/* Opera Quick AI Button */}
-        <button
-          className="opera-ai-btn"
-          title="Open Claude AI"
-          onClick={() => createTab('https://claude.ai')}
-        >
-          🤖 Claude AI
-        </button>
-
-        {/* Opera Actions / Controls */}
+        {/* Status Indicators */}
         <div className="toolbar-actions">
           <DownloadManager downloads={downloads} />
           <MemoryIndicator stats={memoryStats} />
@@ -184,6 +167,32 @@ const App: React.FC = () => {
             findStop('clearSelection');
             setShowFindBar(false);
           }}
+        />
+      )}
+
+      {/* JioSphere 5-Action Bottom Bar */}
+      <BottomControlBar
+        tabCount={tabs.length}
+        canGoBack={activeTab?.canGoBack ?? false}
+        canGoForward={activeTab?.canGoForward ?? false}
+        onBack={goBack}
+        onForward={goForward}
+        onHome={() => createTab('speeddial')}
+        onOpenTabSwitcher={() => setShowTabSwitcher(true)}
+        onNewPrivateTab={() => createPrivateTab()}
+        onFindInPage={() => setShowFindBar((prev) => !prev)}
+        onToggleDevTools={toggleDevTools}
+      />
+
+      {/* JioSphere Tab Switcher Grid Overlay */}
+      {showTabSwitcher && (
+        <TabSwitcherModal
+          tabs={tabs}
+          activeTabId={activeTabId}
+          onSwitchTab={switchTab}
+          onCloseTab={closeTab}
+          onNewTab={() => createTab()}
+          onCloseModal={() => setShowTabSwitcher(false)}
         />
       )}
     </div>

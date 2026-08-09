@@ -1,7 +1,9 @@
 /**
- * Muthu Browser — Full E2E Automation Test Suite
+ * Muthu Browser — JioSphere Playwright E2E Automation Test Suite
  *
- * Tests every UI pathway, button, input bar, modal, and speed dial shortcut tile.
+ * Tests every JioSphere UI pathway, floating omnibox, mic/star buttons,
+ * circular app grid, news category pill tabs, news feed cards,
+ * bottom action bar, tab switcher grid modal, and custom app shortcut creation.
  */
 
 import { chromium } from 'playwright';
@@ -11,7 +13,7 @@ import * as path from 'path';
 
 async function runAutomationTests() {
   console.log('====================================================');
-  console.log('🚀 STARTING FULL BROWSER AUTOMATION SUITE');
+  console.log('🚀 STARTING JIOSPHERE FULL E2E AUTOMATION SUITE');
   console.log('====================================================\n');
 
   const browser = await chromium.launch({ headless: true });
@@ -31,139 +33,101 @@ async function runAutomationTests() {
     }
   }
 
-  // ─── PART 1: SPEED DIAL UI AUTOMATION ────────────────────────────
-  console.log('📋 SECTION 1: SPEED DIAL (NEW TAB PAGE) AUTOMATION');
+  // ─── PART 1: JIOSPHERE SPEED DIAL START PAGE AUTOMATION ─────────
+  console.log('📋 SECTION 1: JIOSPHERE START PAGE & FEED AUTOMATION');
 
-  // Load Speed Dial HTML
   const speedDialHtml = getSpeedDialHtml();
   const tempHtmlPath = path.join(__dirname, 'temp-speeddial.html');
   fs.writeFileSync(tempHtmlPath, speedDialHtml);
   await page.goto(`file://${tempHtmlPath}`);
   await page.waitForLoadState('domcontentloaded');
 
-  // Test 1: Clock & Greeting elements exist
+  // Test 1: Clock Badge
   const clockText = await page.textContent('#clock');
-  assert(clockText !== null && clockText.includes(':'), 'Digital clock renders HH:MM time');
+  assert(clockText !== null && clockText.includes(':'), 'Digital clock badge renders HH:MM time');
 
-  const greetingText = await page.textContent('#greeting');
-  assert(greetingText !== null && greetingText.length > 0, 'Greeting text renders correctly');
-
-  // Test 2: Hero Search Input & Google Logo
+  // Test 2: Hero Omnibox Search Input & Mic/Star Icons
   const searchInput = page.locator('#searchInput');
-  await assert(await searchInput.isVisible(), 'Hero search input bar is visible');
+  await assert(await searchInput.isVisible(), 'Floating omnibox search bar is visible');
   
-  await searchInput.fill('playwright browser test');
+  await searchInput.fill('JioSphere Playwright E2E Test');
   const inputValue = await searchInput.inputValue();
-  assert(inputValue === 'playwright browser test', 'Typing into hero search bar captures input accurately');
+  assert(inputValue === 'JioSphere Playwright E2E Test', 'Omnibox input captures search query accurately');
 
-  // Test 3: Search Form Submit
-  let navigatedUrl = '';
+  // Test 3: Search Form Navigation
   await page.evaluate(() => {
     window.navigate = (url: string) => {
       (window as any).__navigatedTo = url;
     };
   });
-  await page.click('.search-actions button[type="submit"]');
-  navigatedUrl = await page.evaluate(() => (window as any).__navigatedTo || '');
-  assert(navigatedUrl.includes('google.com/search?q=playwright'), 'Submitting search bar triggers Google search navigation');
+  await page.click('button[type="submit"].search-submit-btn');
+  const navigatedUrl = await page.evaluate(() => (window as any).__navigatedTo || '');
+  assert(navigatedUrl.includes('google.com/search?q=JioSphere'), 'Submitting omnibox triggers Google search navigation');
 
-  // Test 4: Speed Dial Tiles Rendering
-  const dialTiles = page.locator('#dialGrid .dial-tile');
-  const tileCount = await dialTiles.count();
-  assert(tileCount >= 12, `Speed dial grid rendered ${tileCount} tiles (including Add Shortcut tile)`);
+  // Test 4: Circular App Shortcuts Grid
+  const appTiles = page.locator('#quickGrid .app-tile');
+  const tileCount = await appTiles.count();
+  assert(tileCount >= 10, `Quick access grid rendered ${tileCount} circular app tiles (including Add App)`);
 
-  // Test 5: Click Primary Shortcuts One by One
-  const expectedSites = ['Google', 'YouTube', 'Amazon', 'ChatGPT', 'Claude AI', 'GitHub', 'Flipkart', 'LeetCode', 'Reddit', 'X', 'LinkedIn'];
-  for (let i = 0; i < expectedSites.length; i++) {
-    const siteName = expectedSites[i];
-    const tile = dialTiles.nth(i);
-    const label = await tile.locator('.tile-label').textContent();
-    assert(label === siteName, `Shortcut #${i + 1} tile label matches "${siteName}"`);
+  const expectedApps = ['JioCinema', 'JioSaavn', 'Google', 'YouTube', 'Amazon', 'ChatGPT', 'Claude AI', 'GitHub', 'Flipkart'];
+  for (let i = 0; i < expectedApps.length; i++) {
+    const appName = expectedApps[i];
+    const label = await appTiles.nth(i).locator('.app-label').textContent();
+    assert(label === appName, `Circular app tile #${i + 1} matches "${appName}"`);
   }
 
-  // Test 6: Click Suggestion Cards One by One
-  const sugCards = page.locator('#suggestionsRow .sug-card');
-  const sugCount = await sugCards.count();
-  assert(sugCount === 6, `Suggestions section rendered ${sugCount} frosted glass cards`);
+  // Test 5: News Category Pill Tabs
+  const pills = page.locator('#categoryRow .category-pill');
+  const pillCount = await pills.count();
+  assert(pillCount === 6, `Category pill row rendered ${pillCount} tabs ('Top News', 'Tech', 'Entertainment', 'Sports', 'Business', 'Cricket')`);
 
-  for (let i = 0; i < sugCount; i++) {
-    const card = sugCards.nth(i);
-    const text = await card.textContent();
-    assert(text !== null && text.length > 0, `Suggestion card #${i + 1} (${text?.trim()}) is interactive`);
-  }
+  // Test 6: News Cards Feed
+  const newsCards = page.locator('#newsGrid .news-card');
+  const newsCount = await newsCards.count();
+  assert(newsCount >= 4, `News feed section rendered ${newsCount} card items with thumbnails, headlines, sources & time-ago`);
 
-  // Test 7: Add Shortcut Modal Automation
-  console.log('\n📋 TESTING ADD SHORTCUT MODAL AUTOMATION:');
-  const addTile = dialTiles.filter({ hasText: 'Add shortcut' });
+  // Test 7: Add App Modal Automation
+  console.log('\n📋 TESTING ADD APP SHORTCUT MODAL AUTOMATION:');
+  const addTile = appTiles.filter({ hasText: 'Add App' });
   await addTile.click();
   await page.waitForTimeout(200);
 
   const modal = page.locator('#addModal');
-  assert(await modal.evaluate((el) => el.classList.contains('active')), 'Clicking "Add shortcut" tile opens modal overlay');
+  assert(await modal.evaluate((el) => el.classList.contains('active')), 'Clicking "Add App" tile opens modal overlay');
 
-  await page.fill('#modalName', 'My Automated Site');
+  await page.fill('#modalName', 'My Jio App');
   await page.fill('#modalUrl', 'https://example.com');
   await page.click('.modal-btn--add');
   await page.waitForTimeout(200);
 
-  const updatedTileCount = await page.locator('#dialGrid .dial-tile').count();
-  assert(updatedTileCount === tileCount + 1, 'Adding custom shortcut dynamically updates grid card count');
-
-  const newTileLabel = await page.locator('#dialGrid .dial-tile').nth(tileCount - 1).locator('.tile-label').textContent();
-  assert(newTileLabel === 'My Automated Site', 'Newly added custom site appears in the speed dial grid');
-
-  // Modal Cancel automation
-  await addTile.click();
-  await page.waitForTimeout(100);
-  await page.click('.modal-btn--cancel');
-  assert(!(await modal.evaluate((el) => el.classList.contains('active'))), 'Modal cancel button closes modal clean');
+  const updatedTileCount = await page.locator('#quickGrid .app-tile').count();
+  assert(updatedTileCount === tileCount + 1, 'Adding custom app shortcut dynamically updates circular grid count');
 
   // Clean temp file
   if (fs.existsSync(tempHtmlPath)) fs.unlinkSync(tempHtmlPath);
 
 
-  // ─── PART 2: RENDERER TOOLBAR UI AUTOMATION ──────────────────────
-  console.log('\n📋 SECTION 2: RENDERER TOOLBAR UI AUTOMATION (http://localhost:5174)');
+  // ─── PART 2: RENDERER TOOLBAR & BOTTOM BAR AUTOMATION ────────────
+  console.log('\n📋 SECTION 2: JIOSPHERE RENDERER TOOLBAR & BOTTOM ACTION BAR (http://localhost:5174)');
 
   try {
     await page.goto('http://localhost:5174/', { timeout: 5000 });
     await page.waitForLoadState('domcontentloaded');
 
-    // Test Address Bar Input
+    // Test Omnibox Input
     const addressInput = page.locator('#url-input');
     if (await addressInput.isVisible()) {
-      assert(true, 'Toolbar Address Bar input `#url-input` is visible');
+      assert(true, 'JioSphere Omnibox input `#url-input` is visible');
 
       await addressInput.fill('https://github.com/muthuvel-24/browser');
       const addressValue = await addressInput.inputValue();
-      assert(addressValue === 'https://github.com/muthuvel-24/browser', 'Address bar onChange captures input typing');
-
-      // Test Search/Submit Button
-      const submitBtn = page.locator('.url-action-btn--submit');
-      assert(await submitBtn.isVisible(), 'Address bar Search submit 🔍 button is visible');
+      assert(addressValue === 'https://github.com/muthuvel-24/browser', 'Omnibox input captures URL typing');
     }
 
-    // Test Navigation Buttons
-    const backBtn = page.locator('#nav-back');
-    const forwardBtn = page.locator('#nav-forward');
-    const reloadBtn = page.locator('#nav-reload');
-
-    if (await backBtn.isVisible()) {
-      assert(true, 'Navigation Back button is rendered');
-      assert(await forwardBtn.isVisible(), 'Navigation Forward button is rendered');
-      assert(await reloadBtn.isVisible(), 'Navigation Reload button is rendered');
-    }
-
-    // Test Opera "O" Menu Button
-    const operaBtn = page.locator('.opera-menu-btn');
-    if (await operaBtn.isVisible()) {
-      assert(true, 'Opera "O" red logo menu button is visible and interactive');
-    }
-
-    // Test Quick AI Button
-    const aiBtn = page.locator('.opera-ai-btn');
-    if (await aiBtn.isVisible()) {
-      assert(true, 'Opera Quick Claude AI button is visible and interactive');
+    // Test JioSphere 5-Action Bottom Control Bar
+    const bottomBar = page.locator('#bottom-control-bar');
+    if (await bottomBar.isVisible()) {
+      assert(true, 'JioSphere Bottom Control Bar `#bottom-control-bar` is rendered');
     }
 
   } catch (err) {

@@ -1,7 +1,7 @@
 /**
- * Muthu Browser — DOM & Logic E2E Automation Engine
+ * Muthu Browser — DOM & Logic E2E Automation Engine (JioSphere Edition)
  *
- * Automated verification of every UI element, shortcut link, search bar behavior,
+ * Automated verification of JioSphere UI elements, circular shortcut links, search bar behavior,
  * clock ticker, modal window state machine, and IPC message payload.
  */
 
@@ -10,7 +10,7 @@ import { normalizeUrl, stripTrackingParams } from '../src/main/url-utils';
 
 function runDOMVerification() {
   console.log('====================================================');
-  console.log('🚀 RUNNING BROWSER UI AUTOMATION VERIFICATION');
+  console.log('🚀 RUNNING JIOSPHERE BROWSER UI AUTOMATION VERIFICATION');
   console.log('====================================================\n');
 
   let passed = 0;
@@ -26,38 +26,38 @@ function runDOMVerification() {
     }
   }
 
-  // ─── 1. SPEED DIAL HTML INTEGRITY TEST ─────────────────────────────
-  console.log('📋 1. SPEED DIAL (NEW TAB PAGE) HTML & DOM STRUCTURE:');
+  // ─── 1. JIOSPHERE SPEED DIAL HTML INTEGRITY TEST ───────────────────
+  console.log('📋 1. JIOSPHERE SPEED DIAL (NEW TAB PAGE) HTML & DOM STRUCTURE:');
   const html = getSpeedDialHtml();
 
-  assert(html.includes('<div class="clock" id="clock">12:00</div>'), 'Digital Clock container `#clock` exists');
-  assert(html.includes('<div class="greeting" id="greeting">'), 'Personalized Greeting `#greeting` container exists');
-  assert(html.includes('<input\n            type="text"\n            id="searchInput"') || html.includes('id="searchInput"'), 'Hero Search bar input `#searchInput` exists');
-  assert(html.includes('svg class="search-google-icon"'), 'Authentic Google 4-color SVG logo is embedded inside search bar');
-  assert(html.includes('<div class="dial-grid" id="dialGrid"></div>'), 'Speed dial grid container `#dialGrid` exists');
-  assert(html.includes('<div class="suggestions-row" id="suggestionsRow"></div>'), 'Suggestions section `#suggestionsRow` container exists');
+  assert(html.includes('<div class="clock-badge" id="clock">12:00</div>'), 'Clock badge `#clock` container exists');
+  assert(html.includes('id="searchInput"'), 'JioSphere Omnibox Search bar input `#searchInput` exists');
+  assert(html.includes('🔒'), 'HTTPS Security Lock icon is embedded inside search bar');
+  assert(html.includes('🎙️'), 'Voice Search Mic icon is embedded inside search bar');
+  assert(html.includes('⭐'), 'Bookmark Star icon is embedded inside search bar');
+  assert(html.includes('<div class="quick-access-grid" id="quickGrid"></div>'), 'Circular Quick Access grid `#quickGrid` exists');
+  assert(html.includes('<div class="category-pills-row" id="categoryRow">'), 'News Category Pills `#categoryRow` exists');
+  assert(html.includes('<div class="news-grid" id="newsGrid"></div>'), 'Card-based News Grid `#newsGrid` exists');
   assert(html.includes('<div class="modal-overlay" id="addModal">'), 'Add Shortcut modal overlay `#addModal` container exists');
-  assert(html.includes('localStorage.setItem'), 'localStorage persistence logic is embedded');
+  assert(html.includes('localStorage.setItem'), 'LocalStorage persistence logic is embedded');
 
-  // ─── 2. SPEED DIAL DEFAULT SHORTCUT CARDS TEST ────────────────────
-  console.log('\n📋 2. SPEED DIAL DEFAULT SHORTCUTS AUDIT:');
-  const expectedSites = [
-    'Google', 'YouTube', 'Amazon', 'ChatGPT', 'Claude AI',
-    'GitHub', 'Flipkart', 'LeetCode', 'Reddit', 'X', 'LinkedIn'
+  // ─── 2. JIOSPHERE DEFAULT SHORTCUT CARDS TEST ─────────────────────
+  console.log('\n📋 2. JIOSPHERE DEFAULT SHORTCUTS AUDIT:');
+  const expectedApps = [
+    'JioCinema', 'JioSaavn', 'Google', 'YouTube', 'Amazon',
+    'ChatGPT', 'Claude AI', 'GitHub', 'Flipkart'
   ];
 
-  expectedSites.forEach((site) => {
-    assert(html.includes(`name: '${site}'`) || html.includes(`'${site}'`), `Default shortcut "${site}" is registered`);
+  expectedApps.forEach((app) => {
+    assert(html.includes(`name: '${app}'`), `Default app shortcut "${app}" is registered`);
   });
 
-  // ─── 3. SUGGESTIONS AUDIT ─────────────────────────────────────────
-  console.log('\n📋 3. SUGGESTION LINKS AUDIT:');
-  const expectedSuggestions = [
-    'Google Workspace', 'YouTube', 'X / Twitter', 'Wikipedia', 'Stack Overflow', 'Hacker News'
-  ];
+  // ─── 3. NEWS CATEGORY PILLS AUDIT ─────────────────────────────────
+  console.log('\n📋 3. NEWS CATEGORY PILLS AUDIT:');
+  const expectedPills = ['Top News', 'Tech', 'Entertainment', 'Sports', 'Business', 'Cricket'];
 
-  expectedSuggestions.forEach((sug) => {
-    assert(html.includes(`name: '${sug}'`) || html.includes(`'${sug}'`), `Suggestion item "${sug}" is registered`);
+  expectedPills.forEach((pill) => {
+    assert(html.includes(`'${pill}'`), `News category pill "${pill}" is registered`);
   });
 
   // ─── 4. URL NORMALIZATION & SEARCH AUTOMATION TEST ────────────────
