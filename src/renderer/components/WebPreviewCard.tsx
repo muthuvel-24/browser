@@ -1,11 +1,11 @@
 /**
- * Muthu Browser — Web Viewport & Web Launcher Component
+ * Muthu Browser — Smart Web Viewport Engine Component
  *
- * Prevents W3C X-Frame-Options refused to connect errors and 403 iframe blocks
- * for Google, Google Drive, Gemini, Gmail, YouTube, GitHub, ChatGPT.
+ * Provides live iframe embedding for Google Search, YouTube videos, Wikipedia, Bing, and open web,
+ * and clean portal launcher cards for login-protected apps (Gmail, ChatGPT, GitHub).
  */
 
-import React from 'react';
+import React, { useState } from 'react';
 import './WebPreviewCard.css';
 
 interface WebPreviewCardProps {
@@ -13,19 +13,54 @@ interface WebPreviewCardProps {
   title: string;
 }
 
-/** Check if a domain requires direct window launching in web preview mode */
+/** Convert YouTube URLs to official embed players so videos play live */
+function getYouTubeEmbedUrl(rawUrl: string): string | null {
+  try {
+    const urlObj = new URL(rawUrl);
+    const host = urlObj.hostname.toLowerCase();
+
+    if (!host.includes('youtube.com') && !host.includes('youtu.be')) return null;
+
+    // Shorts: /shorts/ID
+    if (urlObj.pathname.startsWith('/shorts/')) {
+      const videoId = urlObj.pathname.split('/')[2];
+      return `https://www.youtube-nocookie.com/embed/${videoId}?autoplay=1`;
+    }
+
+    // Standard video: /watch?v=ID
+    const videoId = urlObj.searchParams.get('v');
+    if (videoId) {
+      return `https://www.youtube-nocookie.com/embed/${videoId}?autoplay=1`;
+    }
+
+    // Short link: youtu.be/ID
+    if (host.includes('youtu.be')) {
+      const id = urlObj.pathname.substring(1);
+      if (id) return `https://www.youtube-nocookie.com/embed/${id}?autoplay=1`;
+    }
+
+    // Search query on YouTube: /results?search_query=...
+    const searchQuery = urlObj.searchParams.get('search_query');
+    if (searchQuery) {
+      return `https://www.youtube-nocookie.com/embed?listType=search&list=${encodeURIComponent(searchQuery)}`;
+    }
+
+    // Default YouTube Jeans Movie Songs / Music Embed Feed
+    return 'https://www.youtube-nocookie.com/embed?listType=search&list=jeans+movie+songs';
+  } catch {
+    return null;
+  }
+}
+
+/** Check if a domain requires direct launcher card */
 function isPortalDomain(rawUrl: string): boolean {
   try {
     const host = new URL(rawUrl).hostname.toLowerCase();
     return [
-      'google.com',
-      'www.google.com',
       'drive.google.com',
       'mail.google.com',
       'accounts.google.com',
       'gemini.google.com',
-      'youtube.com',
-      'www.youtube.com',
       'chatgpt.com',
       'claude.ai',
       'github.com',
@@ -37,24 +72,41 @@ function isPortalDomain(rawUrl: string): boolean {
   }
 }
 
-/** Format URL for clean embedding when possible */
-function getEmbedUrl(rawUrl: string): string {
-  if (!rawUrl || rawUrl === 'speeddial' || rawUrl === 'about:blank') return 'speeddial';
-
-  // Google Search official iframe-enabled parameter
-  if (rawUrl.includes('google.com/search')) {
-    if (!rawUrl.includes('igu=1')) {
-      return rawUrl.replace('google.com/search?', 'google.com/search?igu=1&');
-    }
-    return rawUrl;
+/** Determine the ideal embed URL for web preview mode */
+function getSmartEmbedUrl(rawUrl: string): { embedUrl: string; isPortal: boolean } {
+  if (!rawUrl || rawUrl === 'speeddial' || rawUrl === 'about:blank') {
+    return { embedUrl: 'speeddial', isPortal: false };
   }
 
-  return rawUrl;
+  // 1. YouTube Video / Search Embed (Plays LIVE)
+  const ytEmbed = getYouTubeEmbedUrl(rawUrl);
+  if (ytEmbed) {
+    return { embedUrl: ytEmbed, isPortal: false };
+  }
+
+  // 2. Google Search & Google Homepage official igu=1 parameter (Loads LIVE)
+  if (rawUrl.includes('google.com')) {
+    if (rawUrl.includes('google.com/search')) {
+      const iguUrl = rawUrl.includes('igu=1')
+        ? rawUrl
+        : rawUrl.replace('google.com/search?', 'google.com/search?igu=1&');
+      return { embedUrl: iguUrl, isPortal: false };
+    }
+    // Google homepage
+    return { embedUrl: 'https://www.google.com/search?igu=1&q=google', isPortal: false };
+  }
+
+  // 3. Login-protected apps requiring direct launcher
+  if (isPortalDomain(rawUrl)) {
+    return { embedUrl: rawUrl, isPortal: true };
+  }
+
+  return { embedUrl: rawUrl, isPortal: false };
 }
 
 const WebPreviewCard: React.FC<WebPreviewCardProps> = ({ url, title }) => {
-  const isPortal = isPortalDomain(url);
-  const embedUrl = getEmbedUrl(url);
+  const { embedUrl, isPortal } = getSmartEmbedUrl(url);
+  const [hasIframeError, setHasIframeError] = useState(false);
 
   const openDirect = () => {
     window.open(url, '_blank', 'noopener,noreferrer');
@@ -72,12 +124,10 @@ const WebPreviewCard: React.FC<WebPreviewCardProps> = ({ url, title }) => {
     const lower = url.toLowerCase();
     if (lower.includes('drive')) return '📁';
     if (lower.includes('gemini')) return '✨';
-    if (lower.includes('youtube')) return '▶️';
     if (lower.includes('mail') || lower.includes('gmail')) return '✉️';
-    if (lower.includes('google')) return '🌐';
     if (lower.includes('chatgpt')) return '🤖';
     if (lower.includes('github')) return '🐙';
-    return '🚀';
+    return '🌐';
   };
 
   return (
@@ -94,19 +144,20 @@ const WebPreviewCard: React.FC<WebPreviewCardProps> = ({ url, title }) => {
       </div>
 
       <div className="chrome-iframe-container">
-        {!isPortal ? (
+        {!isPortal && !hasIframeError ? (
           <iframe
             key={embedUrl}
             className="chrome-viewport-iframe"
             src={embedUrl}
             title={title || url}
+            onError={() => setHasIframeError(true)}
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
             allowFullScreen
             sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals allow-presentation"
           />
         ) : (
           <div className="chrome-refused-card">
-            {/* Brand Logo Avatar */}
+            {/* Brand Logo Circle */}
             <div className="chrome-portal-logo-circle">
               {getPortalIcon()}
             </div>
@@ -124,8 +175,8 @@ const WebPreviewCard: React.FC<WebPreviewCardProps> = ({ url, title }) => {
               <button className="chrome-btn-primary" onClick={openDirect}>
                 Launch {getDomainLabel()} ↗
               </button>
-              <button className="chrome-btn-secondary" onClick={() => window.location.reload()}>
-                Refresh View
+              <button className="chrome-btn-secondary" onClick={() => setHasIframeError(false)}>
+                Reload View
               </button>
             </div>
           </div>
