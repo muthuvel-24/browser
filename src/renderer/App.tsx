@@ -156,9 +156,17 @@ const App: React.FC = () => {
         <BookmarksBar onNavigate={navigateTo} />
       </div>
 
-      {/* ── 4. Main Viewport (Renders Chrome New Tab Page when on speeddial) ── */}
-      {isSpeedDial && (
+      {/* ── 4. Main Viewport (Renders Chrome New Tab Page when on speeddial, else renders web page iframe) ── */}
+      {isSpeedDial ? (
         <ChromeNewTabPage onNavigate={navigateTo} />
+      ) : (
+        <iframe
+          key={activeTab.url}
+          className="chrome-viewport-iframe"
+          src={activeTab.url}
+          title={activeTab.title || activeTab.url}
+          sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
+        />
       )}
 
       {/* ── 5. Find in Page Overlay ── */}

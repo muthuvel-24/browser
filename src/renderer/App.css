@@ -164,3 +164,10 @@ html, body, #root {
 ::-webkit-scrollbar-thumb:hover {
   background: rgba(255, 255, 255, 0.4);
 }
+
+.chrome-viewport-iframe {
+  width: 100%;
+  height: calc(100vh - 110px);
+  border: none;
+  background: #ffffff;
+}
