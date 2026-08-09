@@ -148,6 +148,12 @@ export class AdBlockEngine {
     targetSession.webRequest.onBeforeRequest(
       { urls: ['*://*/*'] },
       (details, callback) => {
+        // NEVER cancel main frame navigations (e.g. google.com, gemini.google.com, youtube.com)
+        if (details.resourceType === 'mainFrame') {
+          callback({});
+          return;
+        }
+
         const { match } = blocker.match(fromElectronDetails(details));
 
         if (match) {
