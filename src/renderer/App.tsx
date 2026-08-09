@@ -17,6 +17,7 @@ import BookmarksBar from './components/BookmarksBar';
 import VpnModal from './components/VpnModal';
 import FindBar from './components/FindBar';
 import ChromeNewTabPage from './components/ChromeNewTabPage';
+import WebPreviewCard from './components/WebPreviewCard';
 
 const App: React.FC = () => {
   const {
@@ -156,17 +157,11 @@ const App: React.FC = () => {
         <BookmarksBar onNavigate={navigateTo} />
       </div>
 
-      {/* ── 4. Main Viewport (Renders Chrome New Tab Page when on speeddial, else renders web page iframe) ── */}
+      {/* ── 4. Main Viewport (Renders Chrome New Tab Page when on speeddial, else renders WebPreviewCard) ── */}
       {isSpeedDial ? (
         <ChromeNewTabPage onNavigate={navigateTo} />
       ) : (
-        <iframe
-          key={activeTab.url}
-          className="chrome-viewport-iframe"
-          src={activeTab.url}
-          title={activeTab.title || activeTab.url}
-          sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
-        />
+        <WebPreviewCard url={activeTab.url} title={activeTab.title} />
       )}
 
       {/* ── 5. Find in Page Overlay ── */}
