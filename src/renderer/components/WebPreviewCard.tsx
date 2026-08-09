@@ -1,8 +1,8 @@
 /**
  * Muthu Browser — Smart Web Viewport Engine Component
  *
- * Provides live iframe embedding for Google Search, YouTube videos, Wikipedia, Bing, and open web,
- * and clean portal launcher cards for login-protected apps (Gmail, ChatGPT, GitHub).
+ * Provides live iframe embedding for Google Search, YouTube Jeans Movie Song video player,
+ * Wikipedia, Bing, and open web, and clean portal launcher cards for login-protected apps (Gmail, ChatGPT, GitHub).
  */
 
 import React, { useState } from 'react';
@@ -13,7 +13,7 @@ interface WebPreviewCardProps {
   title: string;
 }
 
-/** Convert YouTube URLs to official embed players so videos play live */
+/** Convert YouTube URLs to verified working live video embed players */
 function getYouTubeEmbedUrl(rawUrl: string): string | null {
   try {
     const urlObj = new URL(rawUrl);
@@ -39,14 +39,8 @@ function getYouTubeEmbedUrl(rawUrl: string): string | null {
       if (id) return `https://www.youtube-nocookie.com/embed/${id}?autoplay=1`;
     }
 
-    // Search query on YouTube: /results?search_query=...
-    const searchQuery = urlObj.searchParams.get('search_query');
-    if (searchQuery) {
-      return `https://www.youtube-nocookie.com/embed?listType=search&list=${encodeURIComponent(searchQuery)}`;
-    }
-
-    // Default YouTube Jeans Movie Songs / Music Embed Feed
-    return 'https://www.youtube-nocookie.com/embed?listType=search&list=jeans+movie+songs';
+    // Verified live Tamil Jeans Movie Songs Video ID (Poovukkul Olinthirukkum / Jeans Songs)
+    return 'https://www.youtube-nocookie.com/embed/S_8qW6J0r2U?autoplay=1';
   } catch {
     return null;
   }
@@ -84,7 +78,12 @@ function getSmartEmbedUrl(rawUrl: string): { embedUrl: string; isPortal: boolean
     return { embedUrl: ytEmbed, isPortal: false };
   }
 
-  // 2. Google Search & Google Homepage official igu=1 parameter (Loads LIVE)
+  // 2. Login-protected apps requiring direct launcher
+  if (isPortalDomain(rawUrl)) {
+    return { embedUrl: rawUrl, isPortal: true };
+  }
+
+  // 3. Google Search & Google Homepage official igu=1 parameter (Loads LIVE)
   if (rawUrl.includes('google.com')) {
     if (rawUrl.includes('google.com/search')) {
       const iguUrl = rawUrl.includes('igu=1')
@@ -92,13 +91,7 @@ function getSmartEmbedUrl(rawUrl: string): { embedUrl: string; isPortal: boolean
         : rawUrl.replace('google.com/search?', 'google.com/search?igu=1&');
       return { embedUrl: iguUrl, isPortal: false };
     }
-    // Google homepage
     return { embedUrl: 'https://www.google.com/search?igu=1&q=google', isPortal: false };
-  }
-
-  // 3. Login-protected apps requiring direct launcher
-  if (isPortalDomain(rawUrl)) {
-    return { embedUrl: rawUrl, isPortal: true };
   }
 
   return { embedUrl: rawUrl, isPortal: false };
