@@ -78,7 +78,7 @@ async function createMainWindow(): Promise<void> {
     x: 0,
     y: 0,
     width: contentBounds.width,
-    height: 82,
+    height: 110,
   });
   toolbarView.setBackgroundColor('#0f0f1a');
 

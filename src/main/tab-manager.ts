@@ -20,8 +20,8 @@ import { getSpeedDialHtml } from './speeddial-html';
 import { stripTrackingParams } from './url-utils';
 import { IPC } from '../shared/ipc-channels';
 
-/** Height in pixels reserved for the toolbar UI at the top */
-const TOOLBAR_HEIGHT = 82;
+/** Height in pixels reserved for the toolbar UI at the top (Tab strip + Omnibox + BookmarksBar) */
+const TOOLBAR_HEIGHT = 110;
 
 /** Speed Dial Data URL */
 const SPEED_DIAL_DATA_URL = 'data:text/html;charset=utf-8,' + encodeURIComponent(getSpeedDialHtml());
