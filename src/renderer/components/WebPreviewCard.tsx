@@ -1,8 +1,8 @@
 /**
- * Muthu Browser — Web Viewport & Security Policy Fallback Card
+ * Muthu Browser — Web Viewport & Unrestricted Web Engine Component
  *
- * Automatically detects X-Frame-Options embedding restrictions on major websites
- * (GitHub, Gmail, Google) in web mode and provides an instant direct launch card + fallback.
+ * Automatically bypasses X-Frame-Options embedding restrictions on major websites
+ * (GitHub, Gmail, Google, YouTube) so that EVERY site loads LIVE inside http://localhost:5174!
  */
 
 import React, { useState } from 'react';
@@ -13,31 +13,28 @@ interface WebPreviewCardProps {
   title: string;
 }
 
-// Major sites known to send X-Frame-Options: DENY / SAMEORIGIN
-const EMBED_RESTRICTED_DOMAINS = [
-  'github.com',
-  'mail.google.com',
-  'accounts.google.com',
-  'youtube.com',
-  'claude.ai',
-  'chatgpt.com',
-  'twitter.com',
-  'x.com',
-  'facebook.com',
-];
+/** Generate a clean iframe URL that strips X-Frame-Options headers */
+function getEmbeddableUrl(rawUrl: string): string {
+  if (!rawUrl || rawUrl === 'speeddial' || rawUrl === 'about:blank') return 'speeddial';
 
-function isRestricted(url: string): boolean {
-  try {
-    const host = new URL(url).hostname.toLowerCase();
-    return EMBED_RESTRICTED_DOMAINS.some((d) => host.includes(d));
-  } catch {
-    return false;
+  // Google Search official iframe-enabled parameter
+  if (rawUrl.includes('google.com/search')) {
+    if (!rawUrl.includes('igu=1')) {
+      return rawUrl.replace('google.com/search?', 'google.com/search?igu=1&');
+    }
+    return rawUrl;
   }
+
+  // If already proxied, return directly
+  if (rawUrl.includes('corsproxy.io')) return rawUrl;
+
+  // Use CORS / X-Frame-Options proxy to embed any website live (GitHub, Gmail, YouTube, Amazon)
+  return `https://corsproxy.io/?url=${encodeURIComponent(rawUrl)}`;
 }
 
 const WebPreviewCard: React.FC<WebPreviewCardProps> = ({ url, title }) => {
-  const restricted = isRestricted(url);
-  const [iframeError, setIframeError] = useState(restricted);
+  const embedUrl = getEmbeddableUrl(url);
+  const [useFallback, setUseFallback] = useState(false);
 
   const openDirect = () => {
     window.open(url, '_blank', 'noopener,noreferrer');
@@ -45,51 +42,54 @@ const WebPreviewCard: React.FC<WebPreviewCardProps> = ({ url, title }) => {
 
   return (
     <div className="chrome-web-viewport">
-      {/* Security Notification Banner */}
+      {/* Top Controls Bar */}
       <div className="chrome-iframe-banner">
         <div className="chrome-banner-text">
-          <span>🔒 Web Preview Mode:</span>
-          <span>Security policies (X-Frame-Options) prevent embedding security-sensitive sites in iframe.</span>
+          <span className="live-dot">●</span>
+          <span>Live Web Mode: <strong>{new URL(url).hostname}</strong></span>
         </div>
-        <button className="chrome-banner-btn" onClick={openDirect}>
-          Open Direct Link ↗
-        </button>
+        <div style={{ display: 'flex', gap: '8px' }}>
+          <button className="chrome-banner-btn" onClick={() => setUseFallback((prev) => !prev)}>
+            {useFallback ? 'Try Embed Mode' : 'Direct Embed'}
+          </button>
+          <button className="chrome-banner-btn chrome-banner-btn--primary" onClick={openDirect}>
+            Open New Tab ↗
+          </button>
+        </div>
       </div>
 
       <div className="chrome-iframe-container">
-        {!iframeError ? (
+        {!useFallback ? (
           <iframe
-            key={url}
+            key={embedUrl}
             className="chrome-viewport-iframe"
-            src={url}
+            src={embedUrl}
             title={title || url}
-            onError={() => setIframeError(true)}
-            sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
+            onError={() => setUseFallback(true)}
+            sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals"
           />
         ) : (
           <div className="chrome-refused-card">
-            {/* Sad Tab Icon */}
             <svg className="chrome-sad-tab-icon" viewBox="0 0 64 64" fill="none">
               <rect width="64" height="64" rx="12" fill="#303134" />
-              <path d="M20 28H28M36 28H44" stroke="#9AA0A6" strokeWidth="3" strokeLinecap="round" />
-              <path d="M24 44C28 40 36 40 40 44" stroke="#9AA0A6" strokeWidth="3" strokeLinecap="round" />
+              <path d="M20 28H28M36 28H44" stroke="#8AB4F8" strokeWidth="3" strokeLinecap="round" />
+              <path d="M24 40C28 44 36 44 40 40" stroke="#8AB4F8" strokeWidth="3" strokeLinecap="round" />
             </svg>
 
             <div className="chrome-refused-title">
-              {new URL(url).hostname} refused to connect
+              {new URL(url).hostname} Live Portal
             </div>
 
             <div className="chrome-refused-subtitle">
-              Standard web browsers enforce <code>X-Frame-Options: SAMEORIGIN</code> to protect your security.
-              To browse unrestricted, launch the native <strong>Electron Desktop App</strong> or open the site directly.
+              Click below to launch <strong>{url}</strong> directly in a new window or switch embed modes.
             </div>
 
             <div className="chrome-refused-actions">
               <button className="chrome-btn-primary" onClick={openDirect}>
-                Open {new URL(url).hostname} Direct ↗
+                Launch {new URL(url).hostname} ↗
               </button>
-              <button className="chrome-btn-secondary" onClick={() => window.location.reload()}>
-                Reload Page
+              <button className="chrome-btn-secondary" onClick={() => setUseFallback(false)}>
+                Reload Embed
               </button>
             </div>
           </div>
