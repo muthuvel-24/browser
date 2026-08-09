@@ -70,6 +70,89 @@
   background: #a8c7fa;
 }
 
+/* ─── YouTube In-Tab Search Hub ────────────────────────────────── */
+.yt-hub-header {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 16px;
+  background: #181818;
+  border-bottom: 1px solid #303030;
+  flex-shrink: 0;
+}
+
+.yt-hub-search-form {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+}
+
+.yt-hub-icon {
+  font-size: 20px;
+}
+
+.yt-hub-input {
+  flex: 1;
+  height: 36px;
+  padding: 0 16px;
+  background: #121212;
+  border: 1px solid #303030;
+  border-radius: 18px;
+  color: #ffffff;
+  font-size: 13px;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.yt-hub-input:focus {
+  border-color: #8ab4f8;
+}
+
+.yt-hub-search-btn {
+  height: 36px;
+  padding: 0 18px;
+  background: #cc0000;
+  color: #ffffff;
+  border: none;
+  border-radius: 18px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.yt-hub-search-btn:hover {
+  background: #ff0000;
+}
+
+.yt-hub-presets {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+}
+
+.yt-preset-chip {
+  padding: 5px 14px;
+  background: rgba(255, 255, 255, 0.1);
+  color: #f1f1f1;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 14px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.2s;
+}
+
+.yt-preset-chip:hover {
+  background: #ffffff;
+  color: #0f0f0f;
+}
+
+/* ─── Main Viewport Container ──────────────────────────────────── */
 .chrome-iframe-container {
   flex: 1;
   width: 100%;
@@ -81,10 +164,10 @@
   width: 100%;
   height: 100%;
   border: none;
-  background: #ffffff;
+  background: #000000;
 }
 
-/* Web Portal Fallback Card */
+/* Fallback Card */
 .chrome-refused-card {
   position: absolute;
   inset: 0;
@@ -109,12 +192,6 @@
   font-size: 32px;
   margin-bottom: 20px;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
-}
-
-.chrome-sad-tab-icon {
-  width: 64px;
-  height: 64px;
-  margin-bottom: 20px;
 }
 
 .chrome-refused-title {
