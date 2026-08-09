@@ -10,18 +10,53 @@
 import { useState, useEffect, useCallback } from 'react';
 import type { TabInfo, VpnStatus, AdBlockStats, MemoryStats, DownloadItemInfo, FindMatchInfo, VpnRegion } from '../../main/types';
 
-/** Default initial tab for web standalone mode */
-const DEFAULT_INITIAL_TAB: TabInfo = {
-  id: 'tab-1',
-  url: 'speeddial',
-  title: 'New Tab',
-  favicon: '',
-  status: 'active',
-  isLoading: false,
-  canGoBack: false,
-  canGoForward: false,
-  isPrivate: false,
-};
+/** Default initial tabs for web standalone mode */
+const DEFAULT_INITIAL_TABS: TabInfo[] = [
+  {
+    id: 'tab-google',
+    url: 'https://www.google.com',
+    title: 'Google',
+    favicon: '',
+    status: 'active',
+    isLoading: false,
+    canGoBack: false,
+    canGoForward: false,
+    isPrivate: false,
+  },
+  {
+    id: 'tab-youtube',
+    url: 'https://www.youtube.com/results?search_query=jeans+movie+songs',
+    title: 'YouTube — Jeans Movie Songs',
+    favicon: '',
+    status: 'background',
+    isLoading: false,
+    canGoBack: false,
+    canGoForward: false,
+    isPrivate: false,
+  },
+  {
+    id: 'tab-drive',
+    url: 'https://drive.google.com',
+    title: 'Google Drive',
+    favicon: '',
+    status: 'background',
+    isLoading: false,
+    canGoBack: false,
+    canGoForward: false,
+    isPrivate: false,
+  },
+  {
+    id: 'tab-gemini',
+    url: 'https://gemini.google.com',
+    title: 'Google Gemini',
+    favicon: '',
+    status: 'background',
+    isLoading: false,
+    canGoBack: false,
+    canGoForward: false,
+    isPrivate: false,
+  },
+];
 
 /** Default VPN status */
 const DEFAULT_VPN_STATUS: VpnStatus = {
@@ -86,8 +121,8 @@ export function useIpc(): IpcState & {
   zoomReset: () => void;
   toggleDevTools: () => void;
 } {
-  const [tabs, setTabs] = useState<TabInfo[]>([DEFAULT_INITIAL_TAB]);
-  const [activeTabId, setActiveTabId] = useState<string | null>('tab-1');
+  const [tabs, setTabs] = useState<TabInfo[]>(DEFAULT_INITIAL_TABS);
+  const [activeTabId, setActiveTabId] = useState<string | null>('tab-google');
   const [vpnStatus, setVpnStatus] = useState<VpnStatus>(DEFAULT_VPN_STATUS);
   const [adBlockStats, setAdBlockStats] = useState<AdBlockStats>(DEFAULT_ADBLOCK_STATS);
   const [memoryStats, setMemoryStats] = useState<MemoryStats>(DEFAULT_MEMORY_STATS);
@@ -212,7 +247,7 @@ export function useIpc(): IpcState & {
       setTabs((prev) => {
         const filtered = prev.filter((t) => t.id !== tabId);
         if (filtered.length === 0) {
-          const fresh = { ...DEFAULT_INITIAL_TAB, id: `tab-${Date.now()}` };
+          const fresh = { ...DEFAULT_INITIAL_TABS[0], id: `tab-${Date.now()}` };
           setActiveTabId(fresh.id);
           return [fresh];
         }

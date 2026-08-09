@@ -152,8 +152,11 @@ async function createMainWindow(): Promise<void> {
   const tabSession = session.fromPartition('persist:muthu');
   tabSession.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36');
 
-  // ─── Create Initial Tab ───────────────────────────────────────
-  tabManager.createTab('speeddial');
+  // ─── Create Initial User-Requested Tabs in Muthu Browser ─────
+  tabManager.createTab('https://www.google.com');
+  tabManager.createTab('https://www.youtube.com/results?search_query=jeans+movie+songs');
+  tabManager.createTab('https://drive.google.com');
+  tabManager.createTab('https://gemini.google.com');
 
   // ─── Handle Window Resize ─────────────────────────────────────
   mainWindow.on('resize', () => {
@@ -163,7 +166,7 @@ async function createMainWindow(): Promise<void> {
       x: 0,
       y: 0,
       width: bounds.width,
-      height: 82,
+      height: 110,
     });
   });
 
