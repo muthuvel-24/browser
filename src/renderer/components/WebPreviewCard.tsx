@@ -1,9 +1,8 @@
 /**
  * Muthu Browser — Live Interactive Web Viewport Component
  *
- * Renders 100% live interactive web pages inside Muthu Browser for all websites:
- * YouTube (Jeans songs & search), Google, Gmail, Drive, GitHub, ChatGPT, Gemini, Claude.
- * Eliminates all "open in another browser" placeholder cards!
+ * Provides live iframe embedding for Google Search, YouTube VEVO/Music player,
+ * Wikipedia, Bing, and open web, and clean portal cards for login-protected apps (Gmail, ChatGPT, GitHub).
  */
 
 import React, { useState } from 'react';
@@ -14,25 +13,42 @@ interface WebPreviewCardProps {
   title: string;
 }
 
+/** Convert YouTube URLs into 100% embeddable VEVO / Music Video players */
+function getYouTubeEmbedUrl(rawUrl: string): string | null {
+  try {
+    const urlObj = new URL(rawUrl);
+    const host = urlObj.hostname.toLowerCase();
+
+    if (!host.includes('youtube.com') && !host.includes('youtu.be')) return null;
+
+    // Standard video: /watch?v=ID
+    const videoId = urlObj.searchParams.get('v');
+    if (videoId) {
+      return `https://www.youtube-nocookie.com/embed/${videoId}?autoplay=1`;
+    }
+
+    // Short link: youtu.be/ID
+    if (host.includes('youtu.be')) {
+      const id = urlObj.pathname.substring(1);
+      if (id) return `https://www.youtube-nocookie.com/embed/${id}?autoplay=1`;
+    }
+
+    // 100% Embeddable YouTube Music Video Feed (VEVO Jeans / Tamil Songs Playlist)
+    return 'https://www.youtube-nocookie.com/embed/videoseries?list=PL4fGSI1pDJn6O1LS0XSdF3RyO0Rq_LDeI';
+  } catch {
+    return null;
+  }
+}
+
 /** Format URL into a live embeddable interface for web mode */
 function getEmbeddableUrl(rawUrl: string): string {
   if (!rawUrl || rawUrl === 'speeddial' || rawUrl === 'about:blank') return 'speeddial';
 
   const lower = rawUrl.toLowerCase();
 
-  // 1. YouTube — Jeans Tamil Movie Songs Live Video Embed
-  if (lower.includes('youtube.com') || lower.includes('youtu.be')) {
-    if (lower.includes('watch?v=')) {
-      try {
-        const vId = new URL(rawUrl).searchParams.get('v');
-        if (vId) return `https://www.youtube-nocookie.com/embed/${vId}?autoplay=1`;
-      } catch {
-        // fallback
-      }
-    }
-    // Tamil Jeans Movie Song Video (Poovukkul Olinthirukkum / Jeans Songs)
-    return 'https://www.youtube-nocookie.com/embed/S_8qW6J0r2U?autoplay=1';
-  }
+  // 1. YouTube — VEVO Music Video Embed
+  const ytEmbed = getYouTubeEmbedUrl(rawUrl);
+  if (ytEmbed) return ytEmbed;
 
   // 2. Google Search & Google Homepage (igu=1)
   if (lower.includes('google.com')) {
@@ -44,7 +60,6 @@ function getEmbeddableUrl(rawUrl: string): string {
     return 'https://www.google.com/search?igu=1&q=google';
   }
 
-  // 3. Bing / Wikipedia / Open Web
   return rawUrl;
 }
 
@@ -60,6 +75,16 @@ const WebPreviewCard: React.FC<WebPreviewCardProps> = ({ url, title }) => {
     }
   };
 
+  const getPortalIcon = () => {
+    const lower = url.toLowerCase();
+    if (lower.includes('youtube')) return '▶️';
+    if (lower.includes('github')) return '🐙';
+    if (lower.includes('chatgpt')) return '🤖';
+    if (lower.includes('drive')) return '📁';
+    if (lower.includes('gemini')) return '✨';
+    return '🌐';
+  };
+
   return (
     <div className="chrome-web-viewport">
       {/* Top Controls Bar */}
@@ -72,7 +97,7 @@ const WebPreviewCard: React.FC<WebPreviewCardProps> = ({ url, title }) => {
           className="chrome-banner-btn chrome-banner-btn--primary"
           onClick={() => window.open(url, '_blank', 'noopener,noreferrer')}
         >
-          Popout Tab ↗
+          Open Tab ↗
         </button>
       </div>
 
@@ -90,10 +115,10 @@ const WebPreviewCard: React.FC<WebPreviewCardProps> = ({ url, title }) => {
             sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals allow-presentation"
           />
         ) : (
-          /* Interactive Fallback Viewer (No "another browser" text!) */
+          /* Interactive Fallback Viewer */
           <div className="chrome-refused-card">
             <div className="chrome-portal-logo-circle">
-              {url.includes('github') ? '🐙' : url.includes('chatgpt') ? '🤖' : url.includes('drive') ? '📁' : '🌐'}
+              {getPortalIcon()}
             </div>
             <div className="chrome-refused-title">{getDomain()} Live View</div>
             <div className="chrome-refused-subtitle">
