@@ -1,4 +1,4 @@
-/* AddressBar — JioSphere Mobile Browser Floating Omnibox */
+/* Chrome Omnibox Address Bar & Action Toolbar Styling */
 
 .address-bar {
   display: flex;
@@ -8,12 +8,12 @@
   min-width: 0;
 }
 
-/* ── Navigation Control Buttons ─────────────────────────────────── */
+/* ── Primary Navigation Buttons ─────────────────────────────────── */
 
 .nav-buttons {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 2px;
   flex-shrink: 0;
 }
 
@@ -21,33 +21,31 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
+  width: 28px;
+  height: 28px;
   font-size: 14px;
-  color: var(--text-secondary);
+  color: var(--text-primary);
   background: transparent;
   border: none;
   border-radius: var(--radius-circle);
   cursor: pointer;
-  transition: all var(--transition-fast);
+  transition: background var(--transition-fast);
 }
 
 .nav-btn:hover:not(:disabled) {
-  background: rgba(0, 102, 255, 0.15);
-  color: #ffffff;
+  background: var(--chrome-tab-hover);
 }
 
 .nav-btn:active:not(:disabled) {
-  background: rgba(0, 102, 255, 0.3);
-  transform: scale(0.95);
+  background: rgba(255, 255, 255, 0.16);
 }
 
 .nav-btn:disabled {
-  opacity: 0.25;
+  opacity: 0.3;
   cursor: not-allowed;
 }
 
-/* ── JioSphere Pill Omnibox Input ───────────────────────────────── */
+/* ── Chrome Pill Omnibox Input ─────────────────────────────────── */
 
 .url-form {
   position: relative;
@@ -59,55 +57,53 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  height: 38px;
-  padding: 0 16px;
-  background: var(--bg-secondary);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: var(--radius-pill); /* JioSphere 9999px Pill */
+  height: 34px;
+  padding: 0 14px;
+  background: var(--chrome-input);
+  border: 1px solid transparent;
+  border-radius: var(--radius-pill); /* Chrome 9999px Pill */
   transition: all var(--transition-normal);
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
 }
 
 .url-input-wrapper--focused {
-  border-color: var(--jio-blue);
-  box-shadow: 0 0 0 2px rgba(0, 102, 255, 0.25), 0 4px 20px rgba(0, 102, 255, 0.2);
-  background: var(--bg-tertiary);
+  background: var(--chrome-input);
+  border-color: var(--chrome-blue);
+  box-shadow: 0 0 0 2px rgba(138, 180, 248, 0.25);
 }
 
 .url-input {
   flex: 1;
   min-width: 0;
   height: 100%;
-  font-family: 'Inter', system-ui, sans-serif;
+  font-family: 'Roboto', 'Inter', system-ui, sans-serif;
   font-size: 13px;
   font-weight: 400;
   color: var(--text-primary);
   background: transparent;
   border: none;
   outline: none;
-  caret-color: var(--jio-blue);
+  caret-color: var(--chrome-blue);
 }
 
 .url-input::placeholder {
   color: var(--text-secondary);
-  opacity: 0.65;
+  opacity: 0.7;
 }
 
 .url-input::selection {
-  background: rgba(0, 102, 255, 0.4);
+  background: rgba(138, 180, 248, 0.35);
 }
 
 .url-input-wrapper--private {
-  border-color: rgba(255, 145, 0, 0.4);
-  background: rgba(30, 20, 10, 0.6);
+  background: #1e1b24;
 }
 
 .url-input-wrapper--private.url-input-wrapper--focused {
-  border-color: var(--accent-orange);
-  box-shadow: 0 0 0 2px rgba(255, 145, 0, 0.3), 0 4px 20px rgba(255, 145, 0, 0.2);
+  border-color: #c58af9;
+  box-shadow: 0 0 0 2px rgba(197, 138, 249, 0.25);
 }
 
-/* ── Omnibox Action Icons (Mic, Star, Search, DevTools) ─────────── */
+/* ── Action Toolbar Buttons & Badges ────────────────────────────── */
 
 .url-actions {
   display: flex;
@@ -123,71 +119,72 @@
   cursor: pointer;
   padding: 4px 6px;
   border-radius: var(--radius-circle);
-  opacity: 0.7;
   color: var(--text-secondary);
   transition: all var(--transition-fast);
   display: flex;
   align-items: center;
   justify-content: center;
+  position: relative;
 }
 
 .url-action-btn:hover {
-  opacity: 1;
-  color: var(--jio-blue);
-  background: rgba(0, 102, 255, 0.12);
+  color: var(--text-primary);
+  background: var(--chrome-tab-hover);
 }
 
 .url-action-btn--submit {
-  color: var(--jio-blue);
-  opacity: 1;
+  color: var(--chrome-blue);
 }
 
 .url-action-btn--starred {
-  color: #FFB800;
-  opacity: 1;
+  color: #F4B400;
 }
 
-/* ── SSL Security Lock Indicator ────────────────────────────────── */
+/* Action Shield & VPN Badges */
+.action-badge {
+  position: absolute;
+  top: -2px;
+  right: -2px;
+  background: var(--chrome-blue-dark);
+  color: #ffffff;
+  font-size: 9px;
+  font-weight: 700;
+  padding: 1px 4px;
+  border-radius: var(--radius-pill);
+}
+
+.action-badge--active {
+  background: #00E676;
+  color: #000000;
+}
+
+/* ── SSL Security Indicator ─────────────────────────────────────── */
 
 .ssl-indicator {
   font-size: 13px;
   flex-shrink: 0;
-  line-height: 1;
-  display: flex;
-  align-items: center;
+  color: var(--text-secondary);
 }
 
 .ssl-indicator--secure {
-  color: var(--accent-green);
+  color: #00E676;
 }
 
-.ssl-indicator--insecure {
-  opacity: 0.5;
-}
-
-/* ── JioSphere Blue Progress Loading Bar ────────────────────────── */
+/* ── Chrome Progress Loading Line ───────────────────────────────── */
 
 .loading-bar {
   position: absolute;
   bottom: -2px;
   left: 10px;
   right: 10px;
-  height: 2.5px;
-  background: linear-gradient(90deg, transparent, var(--jio-blue), #00E5FF, transparent);
-  border-radius: 2px;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--chrome-blue), #ffffff, transparent);
+  border-radius: 1px;
   animation: loading-slide 1.2s ease-in-out infinite;
 }
 
 @keyframes loading-slide {
-  0% {
-    transform: translateX(-100%);
-    opacity: 0;
-  }
-  50% {
-    opacity: 1;
-  }
-  100% {
-    transform: translateX(100%);
-    opacity: 0;
-  }
+  0% { transform: translateX(-100%); opacity: 0; }
+  50% { opacity: 1; }
+  100% { transform: translateX(100%); opacity: 0; }
 }

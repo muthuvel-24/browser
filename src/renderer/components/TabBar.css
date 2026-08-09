@@ -1,241 +1,127 @@
-/* TabBar — Opera GX style tab strip */
+/* Chrome Desktop Dark Mode Tab Strip Styling */
 
-.tab-bar {
+.chrome-tab-strip {
   display: flex;
   align-items: flex-end;
   height: 38px;
-  padding: 0 10px;
-  gap: 3px;
-  flex-shrink: 0;
-  overflow: hidden;
-  background: var(--bg-primary);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  background: var(--chrome-frame);
+  padding: 4px 8px 0 8px;
+  user-select: none;
+  position: relative;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.2);
 }
 
-.tab-strip {
+.chrome-tab-list {
   display: flex;
   align-items: flex-end;
-  gap: 4px;
+  gap: -6px; /* Overlapping Chrome tab curves */
   flex: 1;
+  min-width: 0;
   overflow-x: auto;
-  overflow-y: hidden;
   scrollbar-width: none;
 }
 
-.tab-strip::-webkit-scrollbar {
+.chrome-tab-list::-webkit-scrollbar {
   display: none;
 }
 
-/* ── Opera Tab Item ─────────────────────────────────────────────── */
-
-.tab-item {
-  position: relative;
+/* Chrome Tab Item */
+.chrome-tab {
   display: flex;
   align-items: center;
-  gap: 7px;
-  min-width: 90px;
-  max-width: 210px;
-  height: 32px;
-  padding: 0 10px 0 12px;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.05);
-  border-bottom: none;
+  gap: 8px;
+  height: 34px;
+  max-width: 240px;
+  min-width: 120px;
+  flex: 1;
+  padding: 0 16px;
+  background: transparent;
+  color: var(--text-secondary);
   border-radius: 8px 8px 0 0;
   cursor: pointer;
-  transition: all var(--transition-fast);
-  flex-shrink: 0;
+  position: relative;
+  transition: background var(--transition-fast), color var(--transition-fast);
+  margin-right: 2px;
 }
 
-.tab-item:hover {
-  background: rgba(255, 27, 81, 0.08);
-  border-color: rgba(255, 27, 81, 0.2);
+.chrome-tab:hover:not(.chrome-tab--active) {
+  background: var(--chrome-tab-hover);
+  color: var(--text-primary);
 }
 
-/* Active tab — Opera Red Glow */
-.tab-item--active {
-  background: var(--bg-secondary);
-  border-color: rgba(255, 27, 81, 0.3);
+/* Chrome Active Tab (Matches Viewport Background #202124) */
+.chrome-tab--active {
+  background: var(--chrome-active-tab);
+  color: var(--text-primary);
+  box-shadow: 0 -1px 3px rgba(0, 0, 0, 0.3);
+  border-top: 2px solid var(--chrome-blue);
 }
 
-.tab-item--active .tab-title {
-  color: #fff;
-  font-weight: 600;
-}
-
-/* Sleeping tab */
-.tab-item--sleeping {
-  opacity: 0.6;
-}
-
-/* Discarded tab */
-.tab-item--discarded {
-  opacity: 0.4;
-}
-
-.tab-item--discarded .tab-title {
-  font-style: italic;
-}
-
-/* ── Active Indicator (Opera Red Glow Bar) ─────────────────────── */
-
-.tab-active-indicator {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 2px;
-  background: var(--opera-red);
-  box-shadow: 0 0 10px var(--opera-red), 0 0 4px var(--opera-red);
-  border-radius: 2px 2px 0 0;
-}
-
-/* ── Favicon ────────────────────────────────────────────────────── */
-
-.tab-favicon {
-  width: 14px;
-  height: 14px;
+.chrome-tab-favicon {
+  width: 16px;
+  height: 16px;
+  border-radius: 3px;
   flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: center;
+  font-size: 12px;
 }
 
-.tab-favicon img {
-  width: 14px;
-  height: 14px;
-  border-radius: 2px;
-  object-fit: contain;
-}
-
-.tab-favicon-fallback {
-  font-size: 11px;
-  line-height: 1;
-}
-
-/* Loading spinner */
-.tab-spinner {
-  width: 12px;
-  height: 12px;
-  border: 2px solid rgba(255, 27, 81, 0.2);
-  border-top-color: var(--opera-red);
-  border-radius: 50%;
-  animation: spin 0.8s linear infinite;
-}
-
-@keyframes spin {
-  to { transform: rotate(360deg); }
-}
-
-/* ── Title ──────────────────────────────────────────────────────── */
-
-.tab-title {
-  flex: 1;
-  font-size: 11.5px;
-  font-weight: 500;
-  color: var(--text-secondary);
+.chrome-tab-title {
+  font-size: 12px;
+  font-weight: 400;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  transition: color var(--transition-fast);
+  flex: 1;
+  min-width: 0;
 }
 
-.tab-status-icon {
-  margin-right: 3px;
-  font-size: 10px;
-}
-
-/* ── Close Button ───────────────────────────────────────────────── */
-
-.tab-close-btn {
+.chrome-tab-close {
   display: flex;
   align-items: center;
   justify-content: center;
   width: 18px;
   height: 18px;
-  font-size: 10px;
-  color: var(--text-secondary);
-  background: transparent;
   border: none;
-  border-radius: 50%;
+  background: transparent;
+  color: var(--text-secondary);
+  border-radius: var(--radius-circle);
+  font-size: 11px;
   cursor: pointer;
-  opacity: 0;
+  opacity: 0.7;
   transition: all var(--transition-fast);
   flex-shrink: 0;
 }
 
-.tab-item:hover .tab-close-btn {
+.chrome-tab-close:hover {
   opacity: 1;
+  background: rgba(255, 255, 255, 0.2);
+  color: var(--text-primary);
 }
 
-.tab-close-btn:hover {
-  background: rgba(255, 27, 81, 0.25);
-  color: #fff;
-}
-
-/* ── Private / Incognito Tab Styling ───────────────────────────── */
-
-.tab-item--private {
-  background: rgba(112, 0, 255, 0.08);
-  border-color: rgba(112, 0, 255, 0.2);
-}
-
-.tab-item--private:hover {
-  background: rgba(112, 0, 255, 0.15);
-  border-color: rgba(112, 0, 255, 0.4);
-}
-
-.tab-item--private.tab-item--active {
-  background: #140d2b;
-  border-color: rgba(150, 60, 255, 0.5);
-}
-
-.tab-active-indicator--private {
-  background: #963cff !important;
-  box-shadow: 0 0 10px #963cff, 0 0 4px #963cff !important;
-}
-
-.tab-incognito-icon {
-  font-size: 12px;
-}
-
-/* ── Tab Action Buttons ─────────────────────────────────────────── */
-
-.tab-actions {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  margin-left: 4px;
-  margin-bottom: 2px;
-  flex-shrink: 0;
-}
-
-.tab-new-btn, .tab-private-btn {
+/* Chrome New Tab (+) Button */
+.chrome-new-tab-btn {
   display: flex;
   align-items: center;
   justify-content: center;
   width: 28px;
   height: 28px;
-  font-size: 14px;
-  font-weight: 400;
+  margin-left: 4px;
+  margin-bottom: 3px;
+  background: transparent;
+  border: none;
   color: var(--text-secondary);
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: var(--radius-sm);
+  font-size: 16px;
+  font-weight: 300;
+  border-radius: var(--radius-circle);
   cursor: pointer;
   transition: all var(--transition-fast);
   flex-shrink: 0;
 }
 
-.tab-new-btn:hover {
-  background: rgba(255, 27, 81, 0.15);
-  color: var(--opera-red);
-  border-color: rgba(255, 27, 81, 0.3);
-  box-shadow: 0 0 8px rgba(255, 27, 81, 0.3);
-}
-
-.tab-private-btn:hover {
-  background: rgba(150, 60, 255, 0.2);
-  color: #b880ff;
-  border-color: rgba(150, 60, 255, 0.4);
-  box-shadow: 0 0 8px rgba(150, 60, 255, 0.4);
+.chrome-new-tab-btn:hover {
+  background: var(--chrome-tab-hover);
+  color: var(--text-primary);
 }

@@ -1,39 +1,32 @@
 /*
- * Muthu Browser — JioSphere Mobile Browser UI Theme & Styles
+ * Muthu Browser — Google Chrome Desktop Dark Mode UI Theme
  *
- * Design Tokens (JioSphere Dark Language):
- *   --bg-primary:     #0B0E14   (Deep Slate Black)
- *   --bg-secondary:   #161B22   (Dark Grey Container Card)
- *   --bg-tertiary:    #1F242D   (Elevated Card Surface)
- *   --jio-blue:       #0066FF   (Vibrant JioSphere Signature Blue)
- *   --jio-blue-hover: #0052CC   (Jio Blue Hover)
- *   --jio-accent:     #0A66C2   (Secondary Blue Highlight)
- *   --accent-green:   #00E676   (Secure / Connected)
- *   --accent-red:     #FF3D00   (Blocked / Error)
- *   --accent-orange:  #FF9100   (Warning / Incognito)
- *   --text-primary:   #F0F6FC   (Crisp High-Legibility White)
- *   --text-secondary: #8B949E   (Muted Slate Grey)
- *   --glass-bg:       rgba(22, 27, 34, 0.85)
- *   --glass-border:   rgba(255, 255, 255, 0.1)
+ * Exact Chrome Dark Theme Palette:
+ *   --chrome-bg:         #202124   (Chrome Canvas / Body Background)
+ *   --chrome-frame:      #35363A   (Chrome Titlebar & Toolbar Frame)
+ *   --chrome-input:      #28292C   (Chrome Omnibox Pill Input Background)
+ *   --chrome-tab-hover:  rgba(255, 255, 255, 0.08)
+ *   --chrome-active-tab: #202124   (Active Tab matching content viewport)
+ *   --chrome-blue:       #8AB4F8   (Chrome Dark Mode Blue Accent)
+ *   --chrome-blue-dark:  #1A73E8   (Primary Chrome Blue)
+ *   --text-primary:      #E8EAED   (Chrome Light Grey Text)
+ *   --text-secondary:    #9AA0A6   (Chrome Muted Subtitle Text)
+ *   --border-subtle:     rgba(255, 255, 255, 0.1)
  */
 
 :root {
-  --bg-primary: #0B0E14;
-  --bg-secondary: #161B22;
-  --bg-tertiary: #1F242D;
-  --jio-blue: #0066FF;
-  --jio-blue-hover: #0052CC;
-  --jio-accent: #0A66C2;
-  --accent-green: #00E676;
-  --accent-red: #FF3D00;
-  --accent-orange: #FF9100;
-  --text-primary: #F0F6FC;
-  --text-secondary: #8B949E;
-  --glass-bg: rgba(22, 27, 34, 0.85);
-  --glass-border: rgba(255, 255, 255, 0.1);
-  --radius-sm: 8px;
-  --radius-md: 14px;
-  --radius-lg: 20px;
+  --chrome-bg: #202124;
+  --chrome-frame: #35363A;
+  --chrome-input: #28292C;
+  --chrome-tab-hover: rgba(255, 255, 255, 0.08);
+  --chrome-active-tab: #202124;
+  --chrome-blue: #8AB4F8;
+  --chrome-blue-dark: #1A73E8;
+  --text-primary: #E8EAED;
+  --text-secondary: #9AA0A6;
+  --border-subtle: rgba(255, 255, 255, 0.1);
+  --radius-sm: 6px;
+  --radius-md: 12px;
   --radius-pill: 9999px;
   --radius-circle: 50%;
   --transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
@@ -52,9 +45,9 @@ html, body, #root {
   width: 100%;
   height: 100%;
   overflow: hidden;
-  background: var(--bg-primary);
+  background: var(--chrome-bg);
   color: var(--text-primary);
-  font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: 'Roboto', 'Inter', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
   font-size: 13px;
   line-height: 1.4;
   -webkit-font-smoothing: antialiased;
@@ -63,90 +56,100 @@ html, body, #root {
   -webkit-app-region: no-drag;
 }
 
-/* ─── App Shell (Opera Layout) ─────────────────────────────────── */
+/* ─── Chrome App Shell ─────────────────────────────────────────── */
 
 .app-shell {
   display: flex;
   flex-direction: column;
   width: 100%;
-  height: 82px;
-  background: var(--bg-primary);
+  height: 110px; /* Fixed Chrome Frame Height for TabStrip + Toolbar + Bookmarks */
+  background: var(--chrome-frame);
   overflow: hidden;
-  border-bottom: 1px solid var(--glass-border);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.3);
 }
 
-/* ─── Toolbar Row (Address Bar + Opera Actions) ────────────────── */
+/* ─── Chrome Toolbar Row (Omnibox + Action Icons) ──────────────── */
 
 .toolbar-row {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 0 10px 8px 10px;
+  padding: 4px 12px 6px 12px;
   height: 44px;
   flex-shrink: 0;
-  background: var(--bg-primary);
+  background: var(--chrome-bg);
 }
 
 .toolbar-actions {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
   flex-shrink: 0;
 }
 
-/* Opera Menu Button (Red "O" Icon) */
-.opera-menu-btn {
+/* Chrome Toolbar Circular Buttons */
+.chrome-icon-btn {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 30px;
-  height: 30px;
-  background: linear-gradient(135deg, #ff1b51, #d00036);
-  color: #fff;
+  width: 32px;
+  height: 32px;
   font-size: 15px;
-  font-weight: 800;
+  color: var(--text-primary);
+  background: transparent;
   border: none;
-  border-radius: 50%;
+  border-radius: var(--radius-circle);
   cursor: pointer;
-  box-shadow: 0 0 10px rgba(255, 27, 81, 0.4);
-  transition: transform var(--transition-fast), box-shadow var(--transition-fast);
-  margin-right: 4px;
-  flex-shrink: 0;
+  transition: background var(--transition-fast);
 }
 
-.opera-menu-btn:hover {
-  transform: scale(1.08);
-  box-shadow: 0 0 16px rgba(255, 27, 81, 0.7);
+.chrome-icon-btn:hover {
+  background: var(--chrome-tab-hover);
 }
 
-/* Quick Access AI / Claude Shortcut Button */
-.opera-ai-btn {
+.chrome-icon-btn:active {
+  background: rgba(255, 255, 255, 0.16);
+}
+
+/* ─── Window Controls (Minimize, Maximize, Close) ────────────── */
+
+.window-controls {
   display: flex;
   align-items: center;
-  gap: 4px;
-  padding: 0 10px;
-  height: 28px;
-  background: rgba(0, 240, 255, 0.08);
-  border: 1px solid rgba(0, 240, 255, 0.25);
-  border-radius: var(--radius-lg);
-  color: var(--opera-cyan);
-  font-size: 11px;
-  font-weight: 600;
+  height: 100%;
+  margin-left: auto;
+  -webkit-app-region: no-drag;
+}
+
+.window-control-btn {
+  width: 44px;
+  height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 13px;
   cursor: pointer;
-  transition: all var(--transition-fast);
-  flex-shrink: 0;
+  transition: background var(--transition-fast);
 }
 
-.opera-ai-btn:hover {
-  background: rgba(0, 240, 255, 0.18);
-  box-shadow: 0 0 10px rgba(0, 240, 255, 0.3);
+.window-control-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--text-primary);
 }
 
-/* ─── Scrollbar Styling ────────────────────────────────────────── */
+.window-control-btn--close:hover {
+  background: #E81123;
+  color: #ffffff;
+}
+
+/* ─── Scrollbars ───────────────────────────────────────────────── */
 
 ::-webkit-scrollbar {
-  width: 5px;
-  height: 5px;
+  width: 6px;
+  height: 6px;
 }
 
 ::-webkit-scrollbar-track {
@@ -154,28 +157,10 @@ html, body, #root {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: var(--bg-tertiary);
+  background: rgba(255, 255, 255, 0.2);
   border-radius: 3px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--opera-red);
-}
-
-/* ─── Animations ───────────────────────────────────────────────── */
-
-@keyframes pulse-glow {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.6; }
-}
-
-@keyframes slide-in {
-  from {
-    opacity: 0;
-    transform: translateY(-4px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+  background: rgba(255, 255, 255, 0.4);
 }

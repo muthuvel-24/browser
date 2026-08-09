@@ -1,15 +1,9 @@
 /**
- * Muthu Browser — AddressBar Component
- *
- * Navigation toolbar with:
- * - Back / Forward / Reload buttons
- * - URL input with Enter-to-navigate
- * - Explicit focus requesting & robust keyboard submission
- * - SSL lock indicator
- * - Loading progress animation
+ * Muthu Browser — Chrome Desktop Dark Mode Omnibox Component
  */
 
 import React, { useState, useEffect, useRef } from 'react';
+import type { AdBlockStats, VpnStatus } from '../../main/types';
 import './AddressBar.css';
 
 interface AddressBarProps {
@@ -19,16 +13,19 @@ interface AddressBarProps {
   canGoForward: boolean;
   activeTabId: string | null;
   isPrivate?: boolean;
+  adBlockStats?: AdBlockStats;
+  vpnStatus?: VpnStatus;
   onNavigate: (url: string) => void;
   onBack: () => void;
   onForward: () => void;
   onReload: () => void;
   onStop: () => void;
+  onHome: () => void;
+  onToggleVpnModal: () => void;
   onFindClick?: () => void;
   onDevToolsClick?: () => void;
 }
 
-/** Determine if a URL is using HTTPS */
 function isSecure(url: string): boolean {
   try {
     return new URL(url).protocol === 'https:';
@@ -37,7 +34,6 @@ function isSecure(url: string): boolean {
   }
 }
 
-/** Extract displayable hostname or string from URL */
 function getDisplayUrl(url: string): string {
   if (!url || url === 'about:blank' || url === 'speeddial') return '';
   return url;
@@ -50,27 +46,30 @@ const AddressBar: React.FC<AddressBarProps> = ({
   canGoForward,
   activeTabId,
   isPrivate,
+  adBlockStats,
+  vpnStatus,
   onNavigate,
   onBack,
   onForward,
   onReload,
   onStop,
+  onHome,
+  onToggleVpnModal,
   onFindClick,
   onDevToolsClick,
 }) => {
   const [inputValue, setInputValue] = useState(getDisplayUrl(url));
   const [isFocused, setIsFocused] = useState(false);
   const [pendingTarget, setPendingTarget] = useState<string | null>(null);
+  const [isStarred, setIsStarred] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Sync input value with active URL when user is NOT actively typing or waiting for navigation
   useEffect(() => {
     if (!isFocused && !pendingTarget) {
       setInputValue(getDisplayUrl(url));
     }
   }, [url, isFocused, pendingTarget]);
 
-  // When the active tab or url changes from main process, reset pending target
   useEffect(() => {
     setPendingTarget(null);
     setIsFocused(false);
@@ -95,7 +94,6 @@ const AddressBar: React.FC<AddressBarProps> = ({
 
   const handleFocus = () => {
     setIsFocused(true);
-    // Ensure Electron main process grants keyboard focus to the toolbar view
     window.muthuAPI?.focusToolbar();
     setTimeout(() => inputRef.current?.select(), 10);
   };
@@ -126,8 +124,7 @@ const AddressBar: React.FC<AddressBarProps> = ({
           className="nav-btn"
           onClick={onBack}
           disabled={!canGoBack}
-          title="Back (Alt+Left)"
-          aria-label="Go back"
+          title="Click to go back (Alt+Left Arrow)"
           id="nav-back"
         >
           ←
@@ -136,8 +133,7 @@ const AddressBar: React.FC<AddressBarProps> = ({
           className="nav-btn"
           onClick={onForward}
           disabled={!canGoForward}
-          title="Forward (Alt+Right)"
-          aria-label="Go forward"
+          title="Click to go forward (Alt+Right Arrow)"
           id="nav-forward"
         >
           →
@@ -145,18 +141,25 @@ const AddressBar: React.FC<AddressBarProps> = ({
         <button
           className="nav-btn"
           onClick={isLoading ? onStop : onReload}
-          title={isLoading ? 'Stop' : 'Reload (Ctrl+R / F5)'}
-          aria-label={isLoading ? 'Stop loading' : 'Reload page'}
+          title={isLoading ? 'Stop loading' : 'Reload page (Ctrl+R / F5)'}
           id="nav-reload"
         >
           {isLoading ? '✕' : '↻'}
         </button>
+        <button
+          className="nav-btn"
+          onClick={onHome}
+          title="Open New Tab Home Page"
+          id="nav-home"
+        >
+          🏠
+        </button>
       </div>
 
-      {/* URL Input Form */}
+      {/* Chrome Pill Omnibox Form */}
       <form className="url-form" onSubmit={handleSubmit}>
         <div className={`url-input-wrapper ${isFocused ? 'url-input-wrapper--focused' : ''} ${isPrivate ? 'url-input-wrapper--private' : ''}`}>
-          {/* SSL / Incognito Indicator */}
+          {/* SSL / Site Info Icon */}
           <span className={`ssl-indicator ${secure ? 'ssl-indicator--secure' : 'ssl-indicator--insecure'}`}>
             {isPrivate ? '🕶️' : secure ? '🔒' : '🔓'}
           </span>
@@ -170,78 +173,100 @@ const AddressBar: React.FC<AddressBarProps> = ({
             onFocus={handleFocus}
             onBlur={handleBlur}
             onKeyDown={handleKeyDown}
-            placeholder={isPrivate ? "Search privately or enter URL" : "Search or enter URL"}
+            placeholder={isPrivate ? "Search Google or type a URL (Incognito)" : "Search Google or type a URL"}
             spellCheck={false}
             autoComplete="off"
             id="url-input"
           />
 
-          {/* Quick Action Icons */}
+          {/* Inner Omnibox Icons (Voice Mic & Star) */}
           <div className="url-actions">
-            {/* Voice Search Icon */}
             <button
               type="button"
               className="url-action-btn"
-              title="Voice Search"
+              title="Search by voice"
               onClick={() => {
-                const query = prompt('Voice Search (speak or type query):');
-                if (query) onNavigate(query);
+                const q = prompt('Voice Search:');
+                if (q) onNavigate(q);
               }}
             >
               🎙️
             </button>
-
-            {/* Bookmark Star Icon */}
             <button
               type="button"
-              className="url-action-btn"
-              title="Bookmark Page"
-              onClick={(e) => {
-                const target = e.currentTarget;
-                target.classList.toggle('url-action-btn--starred');
-                alert(target.classList.contains('url-action-btn--starred') ? 'Page bookmarked!' : 'Bookmark removed');
-              }}
+              className={`url-action-btn ${isStarred ? 'url-action-btn--starred' : ''}`}
+              title="Bookmark this tab"
+              onClick={() => setIsStarred((prev) => !prev)}
             >
-              ⭐
+              {isStarred ? '★' : '☆'}
             </button>
-
-            {/* Search / Go Button */}
             <button
               type="submit"
               className="url-action-btn url-action-btn--submit"
               onClick={triggerNavigation}
-              title="Search or Go (Enter)"
+              title="Search or Go"
             >
               🔍
             </button>
-
-            {onFindClick && (
-              <button
-                type="button"
-                className="url-action-btn"
-                onClick={onFindClick}
-                title="Find in page (Ctrl+F)"
-              >
-                📄
-              </button>
-            )}
-
-            {onDevToolsClick && (
-              <button
-                type="button"
-                className="url-action-btn"
-                onClick={onDevToolsClick}
-                title="Toggle Developer Tools (F12)"
-              >
-                🛠️
-              </button>
-            )}
           </div>
         </div>
 
-        {/* Loading progress bar */}
+        {/* Loading Progress Bar */}
         {isLoading && <div className="loading-bar" />}
       </form>
+
+      {/* Chrome Action Toolbar (AdBlocker, VPN, Extensions, Profile, Menu) */}
+      <div className="toolbar-actions">
+        {/* Ad Blocker Shield Button */}
+        <button
+          className="url-action-btn"
+          title={`Ad Blocker: ${adBlockStats?.totalBlocked ?? 0} ads & trackers blocked`}
+          onClick={() => alert(`Ad Blocker Active!\nBlocked Total: ${adBlockStats?.totalBlocked ?? 0}\nEngine: Ghostery AdBlocker`)}
+        >
+          🛡️
+          {adBlockStats && adBlockStats.totalBlocked > 0 && (
+            <span className="action-badge">{adBlockStats.totalBlocked}</span>
+          )}
+        </button>
+
+        {/* VPN Toggle Control Panel Button */}
+        <button
+          className="url-action-btn"
+          title={`Chrome VPN: ${vpnStatus?.enabled ? 'Protected (' + vpnStatus.region + ')' : 'Disconnected'}`}
+          onClick={onToggleVpnModal}
+        >
+          ⚡
+          {vpnStatus?.enabled && <span className="action-badge action-badge--active">ON</span>}
+        </button>
+
+        {/* Find in Page */}
+        {onFindClick && (
+          <button className="url-action-btn" onClick={onFindClick} title="Find in page (Ctrl+F)">
+            📄
+          </button>
+        )}
+
+        {/* DevTools */}
+        {onDevToolsClick && (
+          <button className="url-action-btn" onClick={onDevToolsClick} title="Developer Tools (F12)">
+            🛠️
+          </button>
+        )}
+
+        {/* Profile */}
+        <button className="url-action-btn" title="Google Chrome Profile (Guest/User)">
+          👤
+        </button>
+
+        {/* 3-Dot Chrome Settings Menu */}
+        <button
+          className="url-action-btn"
+          title="Customize and control Google Chrome"
+          onClick={() => alert('Google Chrome Settings & Tools Menu')}
+        >
+          ⋮
+        </button>
+      </div>
     </div>
   );
 };

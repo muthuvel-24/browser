@@ -1,0 +1,46 @@
+/* Chrome Horizontal Bookmarks Bar */
+
+.chrome-bookmarks-bar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  height: 28px;
+  background: var(--chrome-bg);
+  padding: 0 12px 2px 12px;
+  border-bottom: 1px solid var(--border-subtle);
+  user-select: none;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.chrome-bookmarks-bar::-webkit-scrollbar {
+  display: none;
+}
+
+.bookmark-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 22px;
+  padding: 0 8px;
+  border: none;
+  background: transparent;
+  color: var(--text-primary);
+  font-size: 11.5px;
+  font-weight: 400;
+  border-radius: 4px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background var(--transition-fast);
+}
+
+.bookmark-item:hover {
+  background: var(--chrome-tab-hover);
+}
+
+.bookmark-favicon {
+  width: 14px;
+  height: 14px;
+  border-radius: 2px;
+  flex-shrink: 0;
+}

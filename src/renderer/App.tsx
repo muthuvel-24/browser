@@ -1,22 +1,20 @@
 /**
- * Muthu Browser — Root App Component (JioSphere UI Theme)
+ * Muthu Browser — Root App Component (Google Chrome Desktop Dark Mode UI Replica)
  *
- * JioSphere-style layout with:
- * - Floating Omnibox with HTTPS lock, Voice Mic, and Bookmark Star
- * - Fixed JioSphere 5-action Bottom Control Bar (Back, Forward, Home, Tab Badge Counter, 3-Dot Menu)
- * - Tab Switcher Grid Overlay with preview cards and floating (+) Action Button
- * - Deep Slate Dark Theme (#0B0E14) & JioSphere Blue Highlights (#0066FF)
+ * Pixel-Perfect Google Chrome Architecture:
+ * - Chrome Dark Mode Tab Strip with trapezoidal active/inactive tabs & window controls
+ * - Omnibox toolbar with Back, Forward, Reload, Home, pill input, voice search, bookmark star
+ * - Built-in AdBlocker shield counter & Chrome VPN control panel modal
+ * - Horizontal bookmarks bar with favicons
+ * - 100% full screen content viewport
  */
 
 import React, { useState, useEffect } from 'react';
 import { useIpc } from './hooks/useIpc';
+import TabBar from './components/TabBar';
 import AddressBar from './components/AddressBar';
-import BottomControlBar from './components/BottomControlBar';
-import TabSwitcherModal from './components/TabSwitcherModal';
-import VpnToggle from './components/VpnToggle';
-import AdBlockStats from './components/AdBlockStats';
-import MemoryIndicator from './components/MemoryIndicator';
-import DownloadManager from './components/DownloadManager';
+import BookmarksBar from './components/BookmarksBar';
+import VpnModal from './components/VpnModal';
 import FindBar from './components/FindBar';
 
 const App: React.FC = () => {
@@ -25,7 +23,6 @@ const App: React.FC = () => {
     activeTabId,
     vpnStatus,
     adBlockStats,
-    memoryStats,
     downloads,
     findMatchInfo,
     createTab,
@@ -48,9 +45,9 @@ const App: React.FC = () => {
   } = useIpc();
 
   const [showFindBar, setShowFindBar] = useState(false);
-  const [showTabSwitcher, setShowTabSwitcher] = useState(false);
+  const [showVpnModal, setShowVpnModal] = useState(false);
 
-  // Find active tab state
+  // Find active tab
   const activeTab = tabs.find((t) => t.id === activeTabId);
 
   // ─── Global Keyboard Shortcuts ───────────────────────────────
@@ -116,19 +113,18 @@ const App: React.FC = () => {
 
   return (
     <div className="app-shell">
-      {/* ── Top Floating JioSphere Omnibox Row ── */}
-      <div className="toolbar-row">
-        {/* JioSphere Logo / Home Trigger */}
-        <button
-          className="opera-menu-btn"
-          style={{ background: 'linear-gradient(135deg, #0066FF, #0040A8)', boxShadow: '0 0 10px rgba(0, 102, 255, 0.4)' }}
-          title="JioSphere Home Start Page"
-          onClick={() => createTab('speeddial')}
-        >
-          J
-        </button>
+      {/* ── 1. Chrome Tab Strip ── */}
+      <TabBar
+        tabs={tabs}
+        activeTabId={activeTabId}
+        onSwitchTab={switchTab}
+        onCloseTab={closeTab}
+        onNewTab={() => createTab()}
+        onNewPrivateTab={() => createPrivateTab()}
+      />
 
-        {/* Floating Address Bar */}
+      {/* ── 2. Chrome Omnibox & Navigation Row ── */}
+      <div className="toolbar-row">
         <AddressBar
           url={activeTab?.url ?? ''}
           isLoading={activeTab?.isLoading ?? false}
@@ -136,29 +132,24 @@ const App: React.FC = () => {
           canGoForward={activeTab?.canGoForward ?? false}
           activeTabId={activeTabId}
           isPrivate={activeTab?.isPrivate}
+          adBlockStats={adBlockStats}
+          vpnStatus={vpnStatus}
           onNavigate={navigateTo}
           onBack={goBack}
           onForward={goForward}
           onReload={reload}
           onStop={stopLoading}
+          onHome={() => createTab('speeddial')}
+          onToggleVpnModal={() => setShowVpnModal((prev) => !prev)}
           onFindClick={() => setShowFindBar((prev) => !prev)}
           onDevToolsClick={toggleDevTools}
         />
-
-        {/* Status Indicators */}
-        <div className="toolbar-actions">
-          <DownloadManager downloads={downloads} />
-          <MemoryIndicator stats={memoryStats} />
-          <AdBlockStats stats={adBlockStats} />
-          <VpnToggle
-            status={vpnStatus}
-            onEnable={vpnEnable}
-            onDisable={vpnDisable}
-          />
-        </div>
       </div>
 
-      {/* Find in Page Overlay */}
+      {/* ── 3. Chrome Horizontal Bookmarks Bar ── */}
+      <BookmarksBar onNavigate={navigateTo} />
+
+      {/* ── 4. Find in Page Overlay ── */}
       {showFindBar && (
         <FindBar
           matchInfo={findMatchInfo}
@@ -170,29 +161,13 @@ const App: React.FC = () => {
         />
       )}
 
-      {/* JioSphere 5-Action Bottom Bar */}
-      <BottomControlBar
-        tabCount={tabs.length}
-        canGoBack={activeTab?.canGoBack ?? false}
-        canGoForward={activeTab?.canGoForward ?? false}
-        onBack={goBack}
-        onForward={goForward}
-        onHome={() => createTab('speeddial')}
-        onOpenTabSwitcher={() => setShowTabSwitcher(true)}
-        onNewPrivateTab={() => createPrivateTab()}
-        onFindInPage={() => setShowFindBar((prev) => !prev)}
-        onToggleDevTools={toggleDevTools}
-      />
-
-      {/* JioSphere Tab Switcher Grid Overlay */}
-      {showTabSwitcher && (
-        <TabSwitcherModal
-          tabs={tabs}
-          activeTabId={activeTabId}
-          onSwitchTab={switchTab}
-          onCloseTab={closeTab}
-          onNewTab={() => createTab()}
-          onCloseModal={() => setShowTabSwitcher(false)}
+      {/* ── 5. Chrome VPN Dropdown Control Panel Modal ── */}
+      {showVpnModal && vpnStatus && (
+        <VpnModal
+          status={vpnStatus}
+          onEnable={vpnEnable}
+          onDisable={vpnDisable}
+          onClose={() => setShowVpnModal(false)}
         />
       )}
     </div>
