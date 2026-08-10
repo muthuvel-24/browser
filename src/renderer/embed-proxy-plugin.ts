@@ -7,8 +7,9 @@ import type { Plugin, Connect } from 'vite';
 import http from 'node:http';
 import https from 'node:https';
 import { URL } from 'node:url';
+import { EMBED_PROXY_PREFIX, toEmbedProxyUrl } from './utils/proxy-utils';
 
-export const EMBED_PROXY_PREFIX = '/__muthu_proxy__/';
+export { EMBED_PROXY_PREFIX, toEmbedProxyUrl };
 
 const HOP_BY_HOP = new Set([
   'connection',
@@ -27,21 +28,10 @@ const HOP_BY_HOP = new Set([
   'x-content-type-options',
 ]);
 
-/** Convert a real URL into a same-origin proxy path */
-export function toEmbedProxyUrl(rawUrl: string): string {
-  try {
-    const u = new URL(rawUrl);
-    return `${EMBED_PROXY_PREFIX}${u.protocol.replace(':', '')}/${u.host}${u.pathname}${u.search}`;
-  } catch {
-    return rawUrl;
-  }
-}
-
 /** Parse /__muthu_proxy__/https/host/path → https://host/path */
 function parseProxyTarget(reqUrl: string): URL | null {
   if (!reqUrl.startsWith(EMBED_PROXY_PREFIX)) return null;
   const rest = reqUrl.slice(EMBED_PROXY_PREFIX.length);
-  // Match http or https
   const match = rest.match(/^(https?)\/([^/?#]+)([^?#]*)(\?[^#]*)?/);
   if (!match) return null;
   const [, protocol, host, pathname, search = ''] = match;
@@ -174,7 +164,6 @@ export function muthuEmbedProxyPlugin(): Plugin {
   return {
     name: 'muthu-embed-proxy',
     configureServer(server) {
-      // Return middleware function from configureServer so it runs BEFORE Vite internal HTML fallback!
       return () => {
         server.middlewares.use((req, res, next) => {
           if (!req.url || !req.url.startsWith(EMBED_PROXY_PREFIX)) {

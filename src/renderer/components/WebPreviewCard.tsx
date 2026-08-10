@@ -8,7 +8,7 @@
 
 import React, { useState, useEffect } from 'react';
 import './WebPreviewCard.css';
-import { toEmbedProxyUrl } from '../embed-proxy-plugin';
+import { toEmbedProxyUrl } from '../utils/proxy-utils';
 
 interface WebPreviewCardProps {
   url: string;
