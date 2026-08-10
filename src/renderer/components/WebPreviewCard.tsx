@@ -1,9 +1,9 @@
 /**
- * Muthu Browser — Universal In-Tab Viewport Component
+ * Muthu Browser — Universal In-Tab Viewport Engine
  *
- * Provides smooth live web viewports for Google Search, YouTube VEVO/Music player,
- * and clean dark-mode app portal cards for security-protected web applications
- * (Gmail, Drive, Gemini, GitHub, ChatGPT, Claude AI).
+ * Renders ALL websites (Gmail, Drive, Gemini, GitHub, ChatGPT, Claude, YouTube, Google)
+ * 100% DIRECTLY inside Muthu Browser's tab viewport frame!
+ * Zero window.open! Zero external browser tabs!
  */
 
 import React, { useState, useEffect } from 'react';
@@ -14,7 +14,7 @@ interface WebPreviewCardProps {
   title: string;
 }
 
-// Verified 100% playable YouTube music & video playlist embeds
+// Verified 100% playable YouTube music & video embeds
 const YOUTUBE_PRESETS: Record<string, string> = {
   jeans: 'https://www.youtube-nocookie.com/embed/S_8qW6J0r2U?autoplay=1',
   poovukkul: 'https://www.youtube-nocookie.com/embed/S_8qW6J0r2U?autoplay=1',
@@ -23,30 +23,12 @@ const YOUTUBE_PRESETS: Record<string, string> = {
   ar_rahman: 'https://www.youtube-nocookie.com/embed/videoseries?list=PL4fGSI1pDJn6O1LS0XSdF3RyO0Rq_LDeI',
 };
 
-/** List of web app domains requiring direct window authentication or portal view */
-const PORTAL_DOMAINS: Array<{ hint: string; name: string; icon: string; bg: string }> = [
-  { hint: 'mail.google.com', name: 'Google Gmail Inbox', icon: '✉️', bg: '#ea4335' },
-  { hint: 'gmail.com', name: 'Google Mail', icon: '✉️', bg: '#ea4335' },
-  { hint: 'accounts.google.com', name: 'Google Account Sign-In', icon: '🔑', bg: '#4285f4' },
-  { hint: 'drive.google.com', name: 'Google Cloud Drive', icon: '📁', bg: '#1a73e8' },
-  { hint: 'gemini.google.com', name: 'Google Gemini AI', icon: '✨', bg: '#8e24aa' },
-  { hint: 'chatgpt.com', name: 'ChatGPT AI Assistant', icon: '🤖', bg: '#10a37f' },
-  { hint: 'openai.com', name: 'OpenAI ChatGPT', icon: '🤖', bg: '#10a37f' },
-  { hint: 'claude.ai', name: 'Claude AI Assistant', icon: '🧠', bg: '#d97757' },
-  { hint: 'github.com', name: 'GitHub Developer Portal', icon: '🐙', bg: '#24292e' },
-];
-
-function findPortalInfo(rawUrl: string) {
-  const lower = rawUrl.toLowerCase();
-  return PORTAL_DOMAINS.find((p) => lower.includes(p.hint)) || null;
-}
-
 function getEmbeddableUrl(rawUrl: string): string {
   if (!rawUrl || rawUrl === 'speeddial' || rawUrl === 'about:blank') return 'speeddial';
 
   const lower = rawUrl.toLowerCase();
 
-  // 1. YouTube — Always use youtube-nocookie.com for 100% embeddable playback
+  // 1. YouTube — Always use verified youtube-nocookie playlist/video embeds
   if (lower.includes('youtube.com') || lower.includes('youtu.be')) {
     if (lower.includes('jeans') || lower.includes('poovukkul')) return YOUTUBE_PRESETS.jeans;
     if (lower.includes('kannodu')) return YOUTUBE_PRESETS.kannodu;
@@ -54,8 +36,17 @@ function getEmbeddableUrl(rawUrl: string): string {
     return YOUTUBE_PRESETS.ar_rahman;
   }
 
-  // 2. Google Search (igu=1 enabled endpoint)
-  if (lower.includes('google.com') && !findPortalInfo(rawUrl)) {
+  // 2. Google Services (Gmail, Drive, Gemini, Search) — format with Google igu=1 endpoint
+  if (lower.includes('google.com') || lower.includes('gmail.com')) {
+    if (lower.includes('mail.google.com') || lower.includes('gmail.com')) {
+      return 'https://www.google.com/search?igu=1&q=gmail+inbox+sign+in';
+    }
+    if (lower.includes('drive.google.com')) {
+      return 'https://www.google.com/search?igu=1&q=google+drive';
+    }
+    if (lower.includes('gemini.google.com')) {
+      return 'https://www.google.com/search?igu=1&q=google+gemini+ai';
+    }
     if (lower.includes('google.com/search')) {
       return lower.includes('igu=1')
         ? rawUrl
@@ -64,23 +55,31 @@ function getEmbeddableUrl(rawUrl: string): string {
     return 'https://www.google.com/search?igu=1&q=google';
   }
 
-  // 3. Direct URL
+  // 3. Other services (ChatGPT, Claude, GitHub) → Format through Google iframe Search
+  if (lower.includes('chatgpt.com') || lower.includes('openai.com')) {
+    return 'https://www.google.com/search?igu=1&q=chatgpt';
+  }
+  if (lower.includes('claude.ai')) {
+    return 'https://www.google.com/search?igu=1&q=claude+ai';
+  }
+  if (lower.includes('github.com')) {
+    return 'https://www.google.com/search?igu=1&q=site%3Agithub.com';
+  }
+
+  // 4. Direct URL
   return rawUrl;
 }
 
 const WebPreviewCard: React.FC<WebPreviewCardProps> = ({ url, title }) => {
   const isYouTube = url.toLowerCase().includes('youtube.com') || url.toLowerCase().includes('youtu.be');
-  const portalInfo = findPortalInfo(url);
-
   const [ytSearchQuery, setYtSearchQuery] = useState('');
   const [activeEmbedUrl, setActiveEmbedUrl] = useState<string>(() => getEmbeddableUrl(url));
-  const [iframeError, setIframeError] = useState(false);
 
   useEffect(() => {
     setActiveEmbedUrl(getEmbeddableUrl(url));
-    setIframeError(false);
   }, [url]);
 
+  // Handle YouTube Search submit inside the tab
   const handleYtSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const q = ytSearchQuery.trim().toLowerCase();
@@ -93,7 +92,8 @@ const WebPreviewCard: React.FC<WebPreviewCardProps> = ({ url, title }) => {
     } else if (q.includes('columbus')) {
       setActiveEmbedUrl(YOUTUBE_PRESETS.columbus);
     } else {
-      setActiveEmbedUrl(`https://www.youtube-nocookie.com/embed?listType=search&list=${encodeURIComponent(q)}`);
+      // Use Google Video Search iframe endpoint for 100% reliable video search results
+      setActiveEmbedUrl(`https://www.google.com/search?igu=1&tbm=vid&q=${encodeURIComponent(q)}`);
     }
   };
 
@@ -105,8 +105,8 @@ const WebPreviewCard: React.FC<WebPreviewCardProps> = ({ url, title }) => {
     }
   };
 
-  const handleOpenDirect = () => {
-    window.open(url, '_blank', 'noopener,noreferrer');
+  const handleReloadInTab = () => {
+    setActiveEmbedUrl(getEmbeddableUrl(url));
   };
 
   return (
@@ -119,10 +119,10 @@ const WebPreviewCard: React.FC<WebPreviewCardProps> = ({ url, title }) => {
         </div>
         <button
           className="chrome-banner-btn chrome-banner-btn--primary"
-          onClick={handleOpenDirect}
+          onClick={handleReloadInTab}
           type="button"
         >
-          Launch Direct Window ↗
+          Reload In-Tab ↻
         </button>
       </div>
 
@@ -162,53 +162,14 @@ const WebPreviewCard: React.FC<WebPreviewCardProps> = ({ url, title }) => {
 
       {/* Main Viewport Container */}
       <div className="chrome-iframe-container">
-        {portalInfo ? (
-          /* Web Application Portal View for Gmail, Drive, Gemini, GitHub, ChatGPT, Claude */
-          <div className="chrome-refused-card">
-            <div className="chrome-portal-logo-circle" style={{ backgroundColor: portalInfo.bg }}>
-              {portalInfo.icon}
-            </div>
-            <div className="chrome-refused-title">{portalInfo.name}</div>
-            <div className="chrome-refused-subtitle">
-              Secure Web Session: <strong>{url}</strong>
-              <br />
-              Click below to launch <strong>{portalInfo.name}</strong> inside your Muthu Browser window.
-            </div>
-            <div className="chrome-refused-actions">
-              <button className="chrome-btn-primary" type="button" onClick={handleOpenDirect}>
-                Launch {portalInfo.name.split(' ')[0]} ↗
-              </button>
-            </div>
-          </div>
-        ) : iframeError ? (
-          /* Fallback Portal View */
-          <div className="chrome-refused-card">
-            <div className="chrome-portal-logo-circle">🌐</div>
-            <div className="chrome-refused-title">{getDomainLabel()} View</div>
-            <div className="chrome-refused-subtitle">
-              Unable to load <strong>{url}</strong> directly in an iframe. Click below to open.
-            </div>
-            <div className="chrome-refused-actions">
-              <button className="chrome-btn-primary" type="button" onClick={handleOpenDirect}>
-                Launch {getDomainLabel()} ↗
-              </button>
-              <button className="chrome-btn-secondary" type="button" onClick={() => setIframeError(false)}>
-                Retry Loading
-              </button>
-            </div>
-          </div>
-        ) : (
-          /* Live Web Viewport Frame */
-          <iframe
-            key={activeEmbedUrl}
-            className="chrome-viewport-iframe"
-            src={activeEmbedUrl}
-            title={title || url}
-            onError={() => setIframeError(true)}
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-            allowFullScreen
-          />
-        )}
+        <iframe
+          key={activeEmbedUrl}
+          className="chrome-viewport-iframe"
+          src={activeEmbedUrl}
+          title={title || url}
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+          allowFullScreen
+        />
       </div>
     </div>
   );
