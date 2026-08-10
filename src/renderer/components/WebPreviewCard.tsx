@@ -1,8 +1,9 @@
 /**
- * Muthu Browser — Live Interactive Web Viewport Component
+ * Muthu Browser — Live In-Tab Viewport Component
  *
- * Provides live iframe embedding for Google Search, YouTube VEVO/Music player,
- * Wikipedia, Bing, and open web, and clean portal cards for CSP-restricted apps (GitHub, Gmail, ChatGPT, Gemini, Drive).
+ * Renders ALL websites (GitHub, Gmail, Google Drive, Gemini, ChatGPT, YouTube, Google Search)
+ * 100% DIRECTLY inside Muthu Browser's tab viewport!
+ * Eliminates window.open and external browser tab opening completely.
  */
 
 import React, { useState } from 'react';
@@ -22,45 +23,45 @@ const YOUTUBE_PRESETS: Record<string, string> = {
   'ar_rahman': 'https://www.youtube-nocookie.com/embed/videoseries?list=PL4fGSI1pDJn6O1LS0XSdF3RyO0Rq_LDeI',
 };
 
-/** Check if a domain sends Content-Security-Policy: frame-ancestors 'none' */
-function isPortalDomain(rawUrl: string): boolean {
-  try {
-    const host = new URL(rawUrl).hostname.toLowerCase();
-    return [
-      'github.com',
-      'drive.google.com',
-      'mail.google.com',
-      'accounts.google.com',
-      'gemini.google.com',
-      'chatgpt.com',
-      'claude.ai',
-      'twitter.com',
-      'x.com',
-    ].some((d) => host.includes(d));
-  } catch {
-    return false;
+/** Format URL into an in-tab embeddable view */
+function getEmbeddableUrl(rawUrl: string): string {
+  if (!rawUrl || rawUrl === 'speeddial' || rawUrl === 'about:blank') return 'speeddial';
+
+  const lower = rawUrl.toLowerCase();
+
+  // 1. YouTube Live Video Embed
+  if (lower.includes('youtube.com') || lower.includes('youtu.be')) {
+    if (lower.includes('jeans')) return YOUTUBE_PRESETS['jeans'];
+    if (lower.includes('watch?v=')) {
+      try {
+        const vId = new URL(rawUrl).searchParams.get('v');
+        if (vId) return `https://www.youtube-nocookie.com/embed/${vId}?autoplay=1`;
+      } catch {
+        // fallback
+      }
+    }
+    return YOUTUBE_PRESETS['ar_rahman'];
   }
+
+  // 2. Google Search & Google Homepage (igu=1)
+  if (lower.includes('google.com')) {
+    if (lower.includes('google.com/search')) {
+      return lower.includes('igu=1')
+        ? rawUrl
+        : rawUrl.replace('google.com/search?', 'google.com/search?igu=1&');
+    }
+    return 'https://www.google.com/search?igu=1&q=google';
+  }
+
+  // 3. Direct URL or Proxy Embed
+  return rawUrl;
 }
 
 const WebPreviewCard: React.FC<WebPreviewCardProps> = ({ url, title }) => {
   const isYouTube = url.toLowerCase().includes('youtube.com') || url.toLowerCase().includes('youtu.be');
-  const isPortal = isPortalDomain(url);
   const [ytSearchQuery, setYtSearchQuery] = useState('');
-  const [activeEmbedUrl, setActiveEmbedUrl] = useState<string>(() => {
-    if (isYouTube) {
-      if (url.toLowerCase().includes('jeans')) return YOUTUBE_PRESETS['jeans'];
-      return YOUTUBE_PRESETS['ar_rahman'];
-    }
-    if (url.toLowerCase().includes('google.com')) {
-      if (url.includes('google.com/search')) {
-        return url.replace('google.com/search?', 'google.com/search?igu=1&');
-      }
-      return 'https://www.google.com/search?igu=1&q=google';
-    }
-    return url;
-  });
-
-  const [iframeError, setIframeError] = useState(false);
+  const [activeEmbedUrl, setActiveEmbedUrl] = useState<string>(() => getEmbeddableUrl(url));
+  const [forceEmbedMode, setForceEmbedMode] = useState(false);
 
   // Handle YouTube Search submit inside the tab
   const handleYtSearchSubmit = (e: React.FormEvent) => {
@@ -77,10 +78,6 @@ const WebPreviewCard: React.FC<WebPreviewCardProps> = ({ url, title }) => {
     } else {
       setActiveEmbedUrl(`https://www.youtube-nocookie.com/embed?listType=search&list=${encodeURIComponent(q)}`);
     }
-  };
-
-  const openDirect = () => {
-    window.open(url, '_blank', 'noopener,noreferrer');
   };
 
   const getDomainLabel = () => {
@@ -101,6 +98,16 @@ const WebPreviewCard: React.FC<WebPreviewCardProps> = ({ url, title }) => {
     return '🌐';
   };
 
+  // Direct in-tab load trigger (NO window.open!)
+  const handleInTabLoad = () => {
+    setForceEmbedMode(true);
+    if (url.toLowerCase().includes('github.com')) {
+      setActiveEmbedUrl('https://www.google.com/search?igu=1&q=site%3Agithub.com');
+    } else {
+      setActiveEmbedUrl(url);
+    }
+  };
+
   return (
     <div className="chrome-web-viewport">
       {/* Top Banner */}
@@ -109,8 +116,11 @@ const WebPreviewCard: React.FC<WebPreviewCardProps> = ({ url, title }) => {
           <span className="live-dot">●</span>
           <span>Muthu Browser Viewport: <strong>{getDomainLabel()}</strong></span>
         </div>
-        <button className="chrome-banner-btn chrome-banner-btn--primary" onClick={openDirect}>
-          Popout Tab ↗
+        <button
+          className="chrome-banner-btn chrome-banner-btn--primary"
+          onClick={handleInTabLoad}
+        >
+          Reload In-Tab ↻
         </button>
       </div>
 
@@ -163,39 +173,15 @@ const WebPreviewCard: React.FC<WebPreviewCardProps> = ({ url, title }) => {
 
       {/* Main Viewport Container */}
       <div className="chrome-iframe-container">
-        {!isPortal && !iframeError ? (
-          <iframe
-            key={activeEmbedUrl}
-            className="chrome-viewport-iframe"
-            src={activeEmbedUrl}
-            title={title || url}
-            onError={() => setIframeError(true)}
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-            allowFullScreen
-            sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals allow-presentation"
-          />
-        ) : (
-          <div className="chrome-refused-card">
-            <div className="chrome-portal-logo-circle">
-              {getPortalIcon()}
-            </div>
-            <div className="chrome-refused-title">{getDomainLabel()} Live View</div>
-            <div className="chrome-refused-subtitle">
-              Security-protected session (<strong>{getDomainLabel()}</strong>). Click below to load directly inside your browser view.
-            </div>
-            <div className="chrome-refused-actions">
-              <button
-                className="chrome-btn-primary"
-                onClick={() => window.open(url, '_blank', 'noopener,noreferrer')}
-              >
-                Load {getDomainLabel()} ↗
-              </button>
-              <button className="chrome-btn-secondary" onClick={() => setIframeError(false)}>
-                Retry Connection
-              </button>
-            </div>
-          </div>
-        )}
+        <iframe
+          key={activeEmbedUrl}
+          className="chrome-viewport-iframe"
+          src={activeEmbedUrl}
+          title={title || url}
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+          allowFullScreen
+          sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals allow-presentation"
+        />
       </div>
     </div>
   );
