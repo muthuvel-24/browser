@@ -1,8 +1,8 @@
 /**
  * Muthu Browser — Live Interactive Web Viewport Component
  *
- * Includes an in-tab YouTube Search Bar & Live Video Hub so users can search
- * and play ANY video or Tamil Jeans movie songs directly inside Muthu Browser!
+ * Provides live iframe embedding for Google Search, YouTube VEVO/Music player,
+ * Wikipedia, Bing, and open web, and clean portal cards for CSP-restricted apps (GitHub, Gmail, ChatGPT, Gemini, Drive).
  */
 
 import React, { useState } from 'react';
@@ -22,8 +22,29 @@ const YOUTUBE_PRESETS: Record<string, string> = {
   'ar_rahman': 'https://www.youtube-nocookie.com/embed/videoseries?list=PL4fGSI1pDJn6O1LS0XSdF3RyO0Rq_LDeI',
 };
 
+/** Check if a domain sends Content-Security-Policy: frame-ancestors 'none' */
+function isPortalDomain(rawUrl: string): boolean {
+  try {
+    const host = new URL(rawUrl).hostname.toLowerCase();
+    return [
+      'github.com',
+      'drive.google.com',
+      'mail.google.com',
+      'accounts.google.com',
+      'gemini.google.com',
+      'chatgpt.com',
+      'claude.ai',
+      'twitter.com',
+      'x.com',
+    ].some((d) => host.includes(d));
+  } catch {
+    return false;
+  }
+}
+
 const WebPreviewCard: React.FC<WebPreviewCardProps> = ({ url, title }) => {
   const isYouTube = url.toLowerCase().includes('youtube.com') || url.toLowerCase().includes('youtu.be');
+  const isPortal = isPortalDomain(url);
   const [ytSearchQuery, setYtSearchQuery] = useState('');
   const [activeEmbedUrl, setActiveEmbedUrl] = useState<string>(() => {
     if (isYouTube) {
@@ -54,7 +75,6 @@ const WebPreviewCard: React.FC<WebPreviewCardProps> = ({ url, title }) => {
     } else if (q.includes('columbus')) {
       setActiveEmbedUrl(YOUTUBE_PRESETS['columbus']);
     } else {
-      // Use YouTube embed search feed
       setActiveEmbedUrl(`https://www.youtube-nocookie.com/embed?listType=search&list=${encodeURIComponent(q)}`);
     }
   };
@@ -69,6 +89,16 @@ const WebPreviewCard: React.FC<WebPreviewCardProps> = ({ url, title }) => {
     } catch {
       return url;
     }
+  };
+
+  const getPortalIcon = () => {
+    const lower = url.toLowerCase();
+    if (lower.includes('github')) return '🐙';
+    if (lower.includes('chatgpt')) return '🤖';
+    if (lower.includes('drive')) return '📁';
+    if (lower.includes('gemini')) return '✨';
+    if (lower.includes('mail') || lower.includes('gmail')) return '✉️';
+    return '🌐';
   };
 
   return (
@@ -133,7 +163,7 @@ const WebPreviewCard: React.FC<WebPreviewCardProps> = ({ url, title }) => {
 
       {/* Main Viewport Container */}
       <div className="chrome-iframe-container">
-        {!iframeError ? (
+        {!isPortal && !iframeError ? (
           <iframe
             key={activeEmbedUrl}
             className="chrome-viewport-iframe"
@@ -147,11 +177,11 @@ const WebPreviewCard: React.FC<WebPreviewCardProps> = ({ url, title }) => {
         ) : (
           <div className="chrome-refused-card">
             <div className="chrome-portal-logo-circle">
-              {url.includes('github') ? '🐙' : url.includes('chatgpt') ? '🤖' : url.includes('drive') ? '📁' : '🌐'}
+              {getPortalIcon()}
             </div>
             <div className="chrome-refused-title">{getDomainLabel()} Live View</div>
             <div className="chrome-refused-subtitle">
-              Interactive session for <strong>{url}</strong>. Click below to load directly inside your browser view.
+              Security-protected session (<strong>{getDomainLabel()}</strong>). Click below to load directly inside your browser view.
             </div>
             <div className="chrome-refused-actions">
               <button
