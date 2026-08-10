@@ -1,7 +1,7 @@
 /**
  * Vite middleware that reverse-proxies external sites for in-tab <iframe> use.
- * Strips frame-ancestors / X-Frame-Options so sites like chatgpt.com can render
- * inside the standalone web preview (localhost Vite server).
+ * Strips frame-ancestors / X-Frame-Options so sites like chatgpt.com, github.com,
+ * and claude.ai can render inside the standalone web preview (localhost Vite server).
  */
 import type { Plugin, Connect } from 'vite';
 import http from 'node:http';
@@ -31,7 +31,6 @@ const HOP_BY_HOP = new Set([
 export function toEmbedProxyUrl(rawUrl: string): string {
   try {
     const u = new URL(rawUrl);
-    // /__muthu_proxy__/https/host/path?query
     return `${EMBED_PROXY_PREFIX}${u.protocol.replace(':', '')}/${u.host}${u.pathname}${u.search}`;
   } catch {
     return rawUrl;
@@ -42,6 +41,7 @@ export function toEmbedProxyUrl(rawUrl: string): string {
 function parseProxyTarget(reqUrl: string): URL | null {
   if (!reqUrl.startsWith(EMBED_PROXY_PREFIX)) return null;
   const rest = reqUrl.slice(EMBED_PROXY_PREFIX.length);
+  // Match http or https
   const match = rest.match(/^(https?)\/([^/?#]+)([^?#]*)(\?[^#]*)?/);
   if (!match) return null;
   const [, protocol, host, pathname, search = ''] = match;
@@ -110,6 +110,7 @@ function proxyRequest(req: Connect.IncomingMessage, res: http.ServerResponse, ta
   headers.host = target.host;
   headers.origin = target.origin;
   headers.referer = target.origin + '/';
+  headers['user-agent'] = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
   delete headers['accept-encoding']; // simplify body handling
 
   const upstream = client.request(
@@ -139,6 +140,7 @@ function proxyRequest(req: Connect.IncomingMessage, res: http.ServerResponse, ta
         res.setHeader(key, value);
       }
       // Explicitly allow embedding in our localhost UI
+      res.setHeader('Access-Control-Allow-Origin', '*');
       res.setHeader('Content-Security-Policy', "frame-ancestors *");
       res.removeHeader('X-Frame-Options');
 
@@ -172,19 +174,22 @@ export function muthuEmbedProxyPlugin(): Plugin {
   return {
     name: 'muthu-embed-proxy',
     configureServer(server) {
-      server.middlewares.use((req, res, next) => {
-        if (!req.url || !req.url.startsWith(EMBED_PROXY_PREFIX)) {
-          next();
-          return;
-        }
-        const target = parseProxyTarget(req.url);
-        if (!target) {
-          res.statusCode = 400;
-          res.end('Invalid embed proxy URL');
-          return;
-        }
-        proxyRequest(req, res, target);
-      });
+      // Return middleware function from configureServer so it runs BEFORE Vite internal HTML fallback!
+      return () => {
+        server.middlewares.use((req, res, next) => {
+          if (!req.url || !req.url.startsWith(EMBED_PROXY_PREFIX)) {
+            next();
+            return;
+          }
+          const target = parseProxyTarget(req.url);
+          if (!target) {
+            res.statusCode = 400;
+            res.end('Invalid embed proxy URL');
+            return;
+          }
+          proxyRequest(req, res, target);
+        });
+      };
     },
   };
 }

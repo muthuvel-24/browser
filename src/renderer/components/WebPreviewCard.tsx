@@ -2,11 +2,13 @@
  * Muthu Browser — Universal Web Viewport Engine
  *
  * Handles ALL websites (ChatGPT, Claude AI, GitHub, Google Drive, Gemini, Gmail, YouTube, Google Search, Wikipedia).
- * Never renders YouTube video players or "video unavailable" errors for non-YouTube sites!
+ * Bypasses X-Frame-Options and Content Security Policy frame-ancestors restrictions using standard Chrome User-Agent
+ * and same-origin embed proxying in standalone mode.
  */
 
 import React, { useState, useEffect } from 'react';
 import './WebPreviewCard.css';
+import { toEmbedProxyUrl } from '../embed-proxy-plugin';
 
 interface WebPreviewCardProps {
   url: string;
@@ -22,22 +24,29 @@ const YOUTUBE_PRESETS: Record<string, string> = {
   ar_rahman: 'https://www.youtube.com/embed/FWvZdFOv95Y?autoplay=1',
 };
 
-/** List of web app domains requiring direct window authentication or portal view */
-const PORTAL_DOMAINS: Array<{ hint: string; name: string; icon: string; bg: string }> = [
-  { hint: 'chatgpt.com', name: 'ChatGPT AI Assistant', icon: '🤖', bg: '#10a37f' },
-  { hint: 'openai.com', name: 'OpenAI ChatGPT', icon: '🤖', bg: '#10a37f' },
-  { hint: 'claude.ai', name: 'Claude AI Assistant', icon: '🧠', bg: '#d97757' },
-  { hint: 'anthropic.com', name: 'Anthropic Claude', icon: '🧠', bg: '#d97757' },
-  { hint: 'github.com', name: 'GitHub Developer Portal', icon: '🐙', bg: '#24292e' },
-  { hint: 'drive.google.com', name: 'Google Cloud Drive', icon: '📁', bg: '#1a73e8' },
-  { hint: 'gemini.google.com', name: 'Google Gemini AI', icon: '✨', bg: '#8e24aa' },
-  { hint: 'mail.google.com', name: 'Google Workspace Gmail', icon: '✉️', bg: '#ea4335' },
-  { hint: 'gmail.com', name: 'Google Mail', icon: '✉️', bg: '#ea4335' },
+/** Hosts that set frame-ancestors / X-Frame-Options and benefit from header stripping proxy */
+const FRAME_BLOCKED_HOST_HINTS = [
+  'chatgpt.com',
+  'chat.openai.com',
+  'openai.com',
+  'github.com',
+  'drive.google.com',
+  'docs.google.com',
+  'mail.google.com',
+  'gmail.com',
+  'gemini.google.com',
+  'accounts.google.com',
+  'claude.ai',
+  'anthropic.com',
+  'facebook.com',
+  'instagram.com',
+  'twitter.com',
+  'x.com',
 ];
 
-function findPortalInfo(rawUrl: string) {
+function needsFrameProxy(rawUrl: string): boolean {
   const lower = rawUrl.toLowerCase();
-  return PORTAL_DOMAINS.find((p) => lower.includes(p.hint)) || null;
+  return FRAME_BLOCKED_HOST_HINTS.some((host) => lower.includes(host));
 }
 
 function getEmbeddableUrl(rawUrl: string): string {
@@ -55,7 +64,7 @@ function getEmbeddableUrl(rawUrl: string): string {
   }
 
   // 2. Google Search (igu=1 enabled endpoint)
-  if (lower.includes('google.com') && !lower.includes('drive') && !lower.includes('gemini') && !lower.includes('mail')) {
+  if (lower.includes('google.com') && !needsFrameProxy(rawUrl)) {
     if (lower.includes('google.com/search')) {
       return lower.includes('igu=1')
         ? rawUrl
@@ -64,14 +73,17 @@ function getEmbeddableUrl(rawUrl: string): string {
     return 'https://www.google.com/search?igu=1&q=google';
   }
 
-  // 3. Direct URL for general websites (Wikipedia, Bing, news, etc.)
+  // 3. Security-restricted sites (ChatGPT, Claude, GitHub, Drive, Gemini) → Proxy embed
+  if (needsFrameProxy(rawUrl)) {
+    return toEmbedProxyUrl(rawUrl);
+  }
+
+  // 4. Direct URL for open web
   return rawUrl;
 }
 
 const WebPreviewCard: React.FC<WebPreviewCardProps> = ({ url, title }) => {
   const isYouTube = url.toLowerCase().includes('youtube.com') || url.toLowerCase().includes('youtu.be');
-  const portalInfo = findPortalInfo(url);
-
   const [ytSearchQuery, setYtSearchQuery] = useState('');
   const [activeEmbedUrl, setActiveEmbedUrl] = useState<string>(() => getEmbeddableUrl(url));
   const [iframeError, setIframeError] = useState(false);
@@ -105,6 +117,11 @@ const WebPreviewCard: React.FC<WebPreviewCardProps> = ({ url, title }) => {
     }
   };
 
+  const handleReloadInTab = () => {
+    setIframeError(false);
+    setActiveEmbedUrl(getEmbeddableUrl(url));
+  };
+
   const handleOpenDirect = () => {
     window.open(url, '_blank', 'noopener,noreferrer');
   };
@@ -119,10 +136,10 @@ const WebPreviewCard: React.FC<WebPreviewCardProps> = ({ url, title }) => {
         </div>
         <button
           className="chrome-banner-btn chrome-banner-btn--primary"
-          onClick={handleOpenDirect}
+          onClick={handleReloadInTab}
           type="button"
         >
-          Open Site ↗
+          Reload In-Tab ↻
         </button>
       </div>
 
@@ -162,42 +179,7 @@ const WebPreviewCard: React.FC<WebPreviewCardProps> = ({ url, title }) => {
 
       {/* Main Viewport Container */}
       <div className="chrome-iframe-container">
-        {portalInfo ? (
-          /* Web Application Portal View for ChatGPT, Claude, GitHub, Drive, Gmail, Gemini */
-          <div className="chrome-refused-card">
-            <div className="chrome-portal-logo-circle" style={{ backgroundColor: portalInfo.bg }}>
-              {portalInfo.icon}
-            </div>
-            <div className="chrome-refused-title">{portalInfo.name}</div>
-            <div className="chrome-refused-subtitle">
-              Secure Web Session: <strong>{url}</strong>
-              <br />
-              Click below to launch <strong>{portalInfo.name}</strong> inside your Muthu Browser window.
-            </div>
-            <div className="chrome-refused-actions">
-              <button className="chrome-btn-primary" type="button" onClick={handleOpenDirect}>
-                Launch {portalInfo.name.split(' ')[0]} ↗
-              </button>
-            </div>
-          </div>
-        ) : iframeError ? (
-          /* Error Fallback View */
-          <div className="chrome-refused-card">
-            <div className="chrome-portal-logo-circle">🌐</div>
-            <div className="chrome-refused-title">{getDomainLabel()} View</div>
-            <div className="chrome-refused-subtitle">
-              Unable to load <strong>{url}</strong> directly in an iframe. Click below to open.
-            </div>
-            <div className="chrome-refused-actions">
-              <button className="chrome-btn-primary" type="button" onClick={handleOpenDirect}>
-                Open {getDomainLabel()} ↗
-              </button>
-              <button className="chrome-btn-secondary" type="button" onClick={() => setIframeError(false)}>
-                Retry Loading
-              </button>
-            </div>
-          </div>
-        ) : (
+        {!iframeError ? (
           /* Live Web Viewport Frame */
           <iframe
             key={activeEmbedUrl}
@@ -208,6 +190,23 @@ const WebPreviewCard: React.FC<WebPreviewCardProps> = ({ url, title }) => {
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
             allowFullScreen
           />
+        ) : (
+          /* Fallback Portal View */
+          <div className="chrome-refused-card">
+            <div className="chrome-portal-logo-circle">🌐</div>
+            <div className="chrome-refused-title">{getDomainLabel()} View</div>
+            <div className="chrome-refused-subtitle">
+              Secure Web Session for <strong>{url}</strong>. Click below to load directly in window.
+            </div>
+            <div className="chrome-refused-actions">
+              <button className="chrome-btn-primary" type="button" onClick={handleOpenDirect}>
+                Open {getDomainLabel()} ↗
+              </button>
+              <button className="chrome-btn-secondary" type="button" onClick={handleReloadInTab}>
+                Retry In-Tab ↻
+              </button>
+            </div>
+          </div>
         )}
       </div>
     </div>
