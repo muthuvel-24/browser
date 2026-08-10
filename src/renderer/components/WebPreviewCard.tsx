@@ -31,7 +31,10 @@ const WebPreviewCard: React.FC<WebPreviewCardProps> = ({ url, title }) => {
       return YOUTUBE_PRESETS['ar_rahman'];
     }
     if (url.toLowerCase().includes('google.com')) {
-      return url.replace('google.com/search?', 'google.com/search?igu=1&');
+      if (url.includes('google.com/search')) {
+        return url.replace('google.com/search?', 'google.com/search?igu=1&');
+      }
+      return 'https://www.google.com/search?igu=1&q=google';
     }
     return url;
   });

@@ -14,8 +14,8 @@ import type { TabInfo, VpnStatus, AdBlockStats, MemoryStats, DownloadItemInfo, F
 const DEFAULT_INITIAL_TABS: TabInfo[] = [
   {
     id: 'tab-google',
-    url: 'https://www.google.com',
-    title: 'Google',
+    url: 'speeddial',
+    title: 'New Tab',
     favicon: '',
     status: 'active',
     isLoading: false,
