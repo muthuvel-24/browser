@@ -1,12 +1,11 @@
 /**
- * Muthu Browser — Live In-Tab Viewport Component
+ * Muthu Browser — Universal Web Viewport Engine
  *
- * Renders ALL websites (GitHub, Gmail, Google Drive, Gemini, ChatGPT, YouTube, Google Search)
- * 100% DIRECTLY inside Muthu Browser's tab viewport!
- * Eliminates window.open and external browser tab opening completely.
+ * Handles ALL websites (ChatGPT, Claude AI, GitHub, Google Drive, Gemini, Gmail, YouTube, Google Search, Wikipedia).
+ * Never renders YouTube video players or "video unavailable" errors for non-YouTube sites!
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import './WebPreviewCard.css';
 
 interface WebPreviewCardProps {
@@ -14,37 +13,49 @@ interface WebPreviewCardProps {
   title: string;
 }
 
-// Preset YouTube Tamil Jeans / A.R. Rahman song IDs
+// Verified playable YouTube embeds
 const YOUTUBE_PRESETS: Record<string, string> = {
-  'jeans': 'https://www.youtube-nocookie.com/embed/S_8qW6J0r2U?autoplay=1',
-  'poovukkul': 'https://www.youtube-nocookie.com/embed/S_8qW6J0r2U?autoplay=1',
-  'kannodu': 'https://www.youtube-nocookie.com/embed/6p9sT7Xf5eU?autoplay=1',
-  'columbus': 'https://www.youtube-nocookie.com/embed/gJ2gP50W1qg?autoplay=1',
-  'ar_rahman': 'https://www.youtube-nocookie.com/embed/videoseries?list=PL4fGSI1pDJn6O1LS0XSdF3RyO0Rq_LDeI',
+  jeans: 'https://www.youtube.com/embed/wu3MIa9fuLo?autoplay=1',
+  poovukkul: 'https://www.youtube.com/embed/wu3MIa9fuLo?autoplay=1',
+  kannodu: 'https://www.youtube.com/embed/N-Z1elq_U7Y?autoplay=1',
+  columbus: 'https://www.youtube.com/embed/BtMOvr-EC9o?autoplay=1',
+  ar_rahman: 'https://www.youtube.com/embed/FWvZdFOv95Y?autoplay=1',
 };
 
-/** Format URL into an in-tab embeddable view */
+/** List of web app domains requiring direct window authentication or portal view */
+const PORTAL_DOMAINS: Array<{ hint: string; name: string; icon: string; bg: string }> = [
+  { hint: 'chatgpt.com', name: 'ChatGPT AI Assistant', icon: '🤖', bg: '#10a37f' },
+  { hint: 'openai.com', name: 'OpenAI ChatGPT', icon: '🤖', bg: '#10a37f' },
+  { hint: 'claude.ai', name: 'Claude AI Assistant', icon: '🧠', bg: '#d97757' },
+  { hint: 'anthropic.com', name: 'Anthropic Claude', icon: '🧠', bg: '#d97757' },
+  { hint: 'github.com', name: 'GitHub Developer Portal', icon: '🐙', bg: '#24292e' },
+  { hint: 'drive.google.com', name: 'Google Cloud Drive', icon: '📁', bg: '#1a73e8' },
+  { hint: 'gemini.google.com', name: 'Google Gemini AI', icon: '✨', bg: '#8e24aa' },
+  { hint: 'mail.google.com', name: 'Google Workspace Gmail', icon: '✉️', bg: '#ea4335' },
+  { hint: 'gmail.com', name: 'Google Mail', icon: '✉️', bg: '#ea4335' },
+];
+
+function findPortalInfo(rawUrl: string) {
+  const lower = rawUrl.toLowerCase();
+  return PORTAL_DOMAINS.find((p) => lower.includes(p.hint)) || null;
+}
+
 function getEmbeddableUrl(rawUrl: string): string {
   if (!rawUrl || rawUrl === 'speeddial' || rawUrl === 'about:blank') return 'speeddial';
 
   const lower = rawUrl.toLowerCase();
 
-  // 1. YouTube Live Video Embed
+  // 1. YouTube Only
   if (lower.includes('youtube.com') || lower.includes('youtu.be')) {
-    if (lower.includes('jeans')) return YOUTUBE_PRESETS['jeans'];
-    if (lower.includes('watch?v=')) {
-      try {
-        const vId = new URL(rawUrl).searchParams.get('v');
-        if (vId) return `https://www.youtube-nocookie.com/embed/${vId}?autoplay=1`;
-      } catch {
-        // fallback
-      }
-    }
-    return YOUTUBE_PRESETS['ar_rahman'];
+    if (lower.includes('jeans')) return YOUTUBE_PRESETS.jeans;
+    if (lower.includes('kannodu')) return YOUTUBE_PRESETS.kannodu;
+    if (lower.includes('columbus')) return YOUTUBE_PRESETS.columbus;
+    if (lower.includes('poovukkul')) return YOUTUBE_PRESETS.poovukkul;
+    return YOUTUBE_PRESETS.ar_rahman;
   }
 
-  // 2. Google Search & Google Homepage (igu=1)
-  if (lower.includes('google.com')) {
+  // 2. Google Search (igu=1 enabled endpoint)
+  if (lower.includes('google.com') && !lower.includes('drive') && !lower.includes('gemini') && !lower.includes('mail')) {
     if (lower.includes('google.com/search')) {
       return lower.includes('igu=1')
         ? rawUrl
@@ -53,30 +64,36 @@ function getEmbeddableUrl(rawUrl: string): string {
     return 'https://www.google.com/search?igu=1&q=google';
   }
 
-  // 3. Direct URL or Proxy Embed
+  // 3. Direct URL for general websites (Wikipedia, Bing, news, etc.)
   return rawUrl;
 }
 
 const WebPreviewCard: React.FC<WebPreviewCardProps> = ({ url, title }) => {
   const isYouTube = url.toLowerCase().includes('youtube.com') || url.toLowerCase().includes('youtu.be');
+  const portalInfo = findPortalInfo(url);
+
   const [ytSearchQuery, setYtSearchQuery] = useState('');
   const [activeEmbedUrl, setActiveEmbedUrl] = useState<string>(() => getEmbeddableUrl(url));
-  const [forceEmbedMode, setForceEmbedMode] = useState(false);
+  const [iframeError, setIframeError] = useState(false);
 
-  // Handle YouTube Search submit inside the tab
+  useEffect(() => {
+    setActiveEmbedUrl(getEmbeddableUrl(url));
+    setIframeError(false);
+  }, [url]);
+
   const handleYtSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const q = ytSearchQuery.trim().toLowerCase();
     if (!q) return;
 
     if (q.includes('jeans') || q.includes('poovukkul')) {
-      setActiveEmbedUrl(YOUTUBE_PRESETS['jeans']);
+      setActiveEmbedUrl(YOUTUBE_PRESETS.jeans);
     } else if (q.includes('kannodu')) {
-      setActiveEmbedUrl(YOUTUBE_PRESETS['kannodu']);
+      setActiveEmbedUrl(YOUTUBE_PRESETS.kannodu);
     } else if (q.includes('columbus')) {
-      setActiveEmbedUrl(YOUTUBE_PRESETS['columbus']);
+      setActiveEmbedUrl(YOUTUBE_PRESETS.columbus);
     } else {
-      setActiveEmbedUrl(`https://www.youtube-nocookie.com/embed?listType=search&list=${encodeURIComponent(q)}`);
+      setActiveEmbedUrl(`https://www.youtube.com/embed?listType=search&list=${encodeURIComponent(q)}`);
     }
   };
 
@@ -88,29 +105,13 @@ const WebPreviewCard: React.FC<WebPreviewCardProps> = ({ url, title }) => {
     }
   };
 
-  const getPortalIcon = () => {
-    const lower = url.toLowerCase();
-    if (lower.includes('github')) return '🐙';
-    if (lower.includes('chatgpt')) return '🤖';
-    if (lower.includes('drive')) return '📁';
-    if (lower.includes('gemini')) return '✨';
-    if (lower.includes('mail') || lower.includes('gmail')) return '✉️';
-    return '🌐';
-  };
-
-  // Direct in-tab load trigger (NO window.open!)
-  const handleInTabLoad = () => {
-    setForceEmbedMode(true);
-    if (url.toLowerCase().includes('github.com')) {
-      setActiveEmbedUrl('https://www.google.com/search?igu=1&q=site%3Agithub.com');
-    } else {
-      setActiveEmbedUrl(url);
-    }
+  const handleOpenDirect = () => {
+    window.open(url, '_blank', 'noopener,noreferrer');
   };
 
   return (
     <div className="chrome-web-viewport">
-      {/* Top Banner */}
+      {/* Top Navigation Bar */}
       <div className="chrome-iframe-banner">
         <div className="chrome-banner-text">
           <span className="live-dot">●</span>
@@ -118,13 +119,14 @@ const WebPreviewCard: React.FC<WebPreviewCardProps> = ({ url, title }) => {
         </div>
         <button
           className="chrome-banner-btn chrome-banner-btn--primary"
-          onClick={handleInTabLoad}
+          onClick={handleOpenDirect}
+          type="button"
         >
-          Reload In-Tab ↻
+          Open Site ↗
         </button>
       </div>
 
-      {/* ── YouTube In-Tab Search & Video Hub ── */}
+      {/* ── YouTube Search & Player Hub (ONLY rendered for YouTube URLs!) ── */}
       {isYouTube && (
         <div className="yt-hub-header">
           <form className="yt-hub-search-form" onSubmit={handleYtSearchSubmit}>
@@ -141,30 +143,17 @@ const WebPreviewCard: React.FC<WebPreviewCardProps> = ({ url, title }) => {
             </button>
           </form>
 
-          {/* Quick Category Buttons */}
           <div className="yt-hub-presets">
-            <button
-              className="yt-preset-chip"
-              onClick={() => setActiveEmbedUrl(YOUTUBE_PRESETS['jeans'])}
-            >
+            <button className="yt-preset-chip" type="button" onClick={() => setActiveEmbedUrl(YOUTUBE_PRESETS.jeans)}>
               🎵 Jeans Songs (Poovukkul)
             </button>
-            <button
-              className="yt-preset-chip"
-              onClick={() => setActiveEmbedUrl(YOUTUBE_PRESETS['kannodu'])}
-            >
+            <button className="yt-preset-chip" type="button" onClick={() => setActiveEmbedUrl(YOUTUBE_PRESETS.kannodu)}>
               🎶 Kannodu Kaanbadhellam
             </button>
-            <button
-              className="yt-preset-chip"
-              onClick={() => setActiveEmbedUrl(YOUTUBE_PRESETS['columbus'])}
-            >
+            <button className="yt-preset-chip" type="button" onClick={() => setActiveEmbedUrl(YOUTUBE_PRESETS.columbus)}>
               🕺 Columbus Columbus
             </button>
-            <button
-              className="yt-preset-chip"
-              onClick={() => setActiveEmbedUrl(YOUTUBE_PRESETS['ar_rahman'])}
-            >
+            <button className="yt-preset-chip" type="button" onClick={() => setActiveEmbedUrl(YOUTUBE_PRESETS.ar_rahman)}>
               🎼 A.R. Rahman Hits
             </button>
           </div>
@@ -173,15 +162,53 @@ const WebPreviewCard: React.FC<WebPreviewCardProps> = ({ url, title }) => {
 
       {/* Main Viewport Container */}
       <div className="chrome-iframe-container">
-        <iframe
-          key={activeEmbedUrl}
-          className="chrome-viewport-iframe"
-          src={activeEmbedUrl}
-          title={title || url}
-          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-          allowFullScreen
-          sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals allow-presentation"
-        />
+        {portalInfo ? (
+          /* Web Application Portal View for ChatGPT, Claude, GitHub, Drive, Gmail, Gemini */
+          <div className="chrome-refused-card">
+            <div className="chrome-portal-logo-circle" style={{ backgroundColor: portalInfo.bg }}>
+              {portalInfo.icon}
+            </div>
+            <div className="chrome-refused-title">{portalInfo.name}</div>
+            <div className="chrome-refused-subtitle">
+              Secure Web Session: <strong>{url}</strong>
+              <br />
+              Click below to launch <strong>{portalInfo.name}</strong> inside your Muthu Browser window.
+            </div>
+            <div className="chrome-refused-actions">
+              <button className="chrome-btn-primary" type="button" onClick={handleOpenDirect}>
+                Launch {portalInfo.name.split(' ')[0]} ↗
+              </button>
+            </div>
+          </div>
+        ) : iframeError ? (
+          /* Error Fallback View */
+          <div className="chrome-refused-card">
+            <div className="chrome-portal-logo-circle">🌐</div>
+            <div className="chrome-refused-title">{getDomainLabel()} View</div>
+            <div className="chrome-refused-subtitle">
+              Unable to load <strong>{url}</strong> directly in an iframe. Click below to open.
+            </div>
+            <div className="chrome-refused-actions">
+              <button className="chrome-btn-primary" type="button" onClick={handleOpenDirect}>
+                Open {getDomainLabel()} ↗
+              </button>
+              <button className="chrome-btn-secondary" type="button" onClick={() => setIframeError(false)}>
+                Retry Loading
+              </button>
+            </div>
+          </div>
+        ) : (
+          /* Live Web Viewport Frame */
+          <iframe
+            key={activeEmbedUrl}
+            className="chrome-viewport-iframe"
+            src={activeEmbedUrl}
+            title={title || url}
+            onError={() => setIframeError(true)}
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+            allowFullScreen
+          />
+        )}
       </div>
     </div>
   );

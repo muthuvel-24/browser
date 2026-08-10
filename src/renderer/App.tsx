@@ -52,6 +52,10 @@ const App: React.FC = () => {
   // Find active tab
   const activeTab = tabs.find((t) => t.id === activeTabId);
 
+  // Electron owns page content via WebContentsView — never iframe remote sites there
+  // (iframes hit CSP frame-ancestors on sites like chatgpt.com).
+  const isElectronShell = typeof window !== 'undefined' && Boolean(window.muthuAPI);
+
   // Check if active tab is speeddial/newtab page
   const isSpeedDial = !activeTab || !activeTab.url || activeTab.url === 'speeddial' || activeTab.url === 'about:blank';
 
@@ -157,11 +161,13 @@ const App: React.FC = () => {
         <BookmarksBar onNavigate={navigateTo} />
       </div>
 
-      {/* ── 4. Main Viewport (Renders Chrome New Tab Page when on speeddial, else renders WebPreviewCard) ── */}
-      {isSpeedDial ? (
+      {/* ── 4. Main Viewport ──
+          Electron: empty (WebContentsView paints below the 110px toolbar).
+          Standalone Vite/Chrome: New Tab page or proxied iframe viewport. */}
+      {isElectronShell ? null : isSpeedDial ? (
         <ChromeNewTabPage onNavigate={navigateTo} />
       ) : (
-        <WebPreviewCard url={activeTab.url} title={activeTab.title} />
+        <WebPreviewCard url={activeTab!.url} title={activeTab!.title} />
       )}
 
       {/* ── 5. Find in Page Overlay ── */}

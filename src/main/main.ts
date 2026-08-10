@@ -9,6 +9,7 @@
  */
 
 import { app, BaseWindow, WebContentsView, ipcMain, session, Menu } from 'electron';
+import type { Session } from 'electron';
 import path from 'path';
 import { TabManager } from './tab-manager';
 import { MemoryManager } from './memory-manager';
@@ -17,6 +18,43 @@ import { ProxyManager } from './proxy-manager';
 import { normalizeUrl } from './url-utils';
 import { IPC } from '../shared/ipc-channels';
 import type { VpnRegion } from './types';
+
+/**
+ * Remove framing restrictions so embedded content (and sites that nest iframes)
+ * can load inside Muthu. Top-level WebContentsView navigations do not need this,
+ * but it prevents CSP frame-ancestors errors for any in-page frames.
+ */
+function stripFrameAncestors(targetSession: Session): void {
+  targetSession.webRequest.onHeadersReceived((details, callback) => {
+    const responseHeaders = { ...(details.responseHeaders ?? {}) };
+
+    for (const key of Object.keys(responseHeaders)) {
+      const lower = key.toLowerCase();
+      if (lower === 'x-frame-options') {
+        delete responseHeaders[key];
+        continue;
+      }
+      if (lower === 'content-security-policy' || lower === 'content-security-policy-report-only') {
+        const values = responseHeaders[key];
+        if (!values) continue;
+        const list = Array.isArray(values) ? values : [values];
+        const rewritten = list
+          .map((csp) =>
+            String(csp)
+              .split(';')
+              .map((d) => d.trim())
+              .filter((d) => d && !d.toLowerCase().startsWith('frame-ancestors'))
+              .join('; ')
+          )
+          .filter(Boolean);
+        if (rewritten.length === 0) delete responseHeaders[key];
+        else responseHeaders[key] = rewritten;
+      }
+    }
+
+    callback({ responseHeaders });
+  });
+}
 
 // ─── Chromium Flags for Memory Optimization ─────────────────────
 // These must be set before app.whenReady()
@@ -151,6 +189,12 @@ async function createMainWindow(): Promise<void> {
   // Set standard Chrome User-Agent on the persistent partition session
   const tabSession = session.fromPartition('persist:muthu');
   tabSession.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36');
+
+  // Allow nested frames inside tab pages (sites that set frame-ancestors / X-Frame-Options)
+  stripFrameAncestors(tabSession);
+  if (toolbarView) {
+    stripFrameAncestors(toolbarView.webContents.session);
+  }
 
   // ─── Create Initial User-Requested Tabs in Muthu Browser ─────
   tabManager.createTab('https://www.google.com');
