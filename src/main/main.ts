@@ -211,6 +211,23 @@ async function createMainWindow(): Promise<void> {
   });
 }
 
+// ─── Window Control IPC ─────────────────────────────────────────
+function registerWindowControls(): void {
+  ipcMain.on('window:minimize', () => {
+    mainWindow?.minimize();
+  });
+  ipcMain.on('window:maximize', () => {
+    if (mainWindow?.isMaximized()) {
+      mainWindow.unmaximize();
+    } else {
+      mainWindow?.maximize();
+    }
+  });
+  ipcMain.on('window:close', () => {
+    mainWindow?.close();
+  });
+}
+
 // ─── Downloads ──────────────────────────────────────────────────
 import type { DownloadItemInfo } from './types';
 const downloads: DownloadItemInfo[] = [];
@@ -358,6 +375,7 @@ function registerIpcHandlers(): void {
 // ─── App Lifecycle ──────────────────────────────────────────────
 app.whenReady().then(async () => {
   registerIpcHandlers();
+  registerWindowControls();
   setupDownloadListener();
   await createMainWindow();
 

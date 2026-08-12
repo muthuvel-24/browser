@@ -203,7 +203,6 @@ const AddressBar: React.FC<AddressBarProps> = ({
             <button
               type="submit"
               className="url-action-btn url-action-btn--submit"
-              onClick={triggerNavigation}
               title="Search or Go"
             >
               🔍

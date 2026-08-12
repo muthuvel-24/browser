@@ -302,7 +302,7 @@ export function useIpc(): IpcState & {
   const vpnEnable = useCallback((region: string) => {
     const api = getApi();
     if (api) {
-      api.vpnEnable(region).then((newStatus) => {
+      api.vpnEnable(region as VpnRegion).then((newStatus) => {
         if (newStatus) setVpnStatus(newStatus);
       }).catch(() => {
         setVpnStatus({ enabled: true, region: region as VpnRegion, state: 'connected', endpoint: '198.51.100.42 (Encrypted SOCKS5)' });

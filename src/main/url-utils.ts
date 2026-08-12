@@ -150,11 +150,10 @@ export function normalizeUrl(input: string): string {
     return `http://${trimmed}`;
   }
 
-  // 5. Single word with no spaces and valid domain label length (<= 253 chars)
-  if (/^[a-zA-Z0-9-]+$/.test(trimmed) && trimmed.length <= 253) {
-    return `https://www.${lower}.com`;
-  }
+  // 5. Single-word with no spaces → search Google (NOT https://www.[word].com)
+  //    This prevents "weather", "cats", "news" from navigating to random .com domains.
+  //    Only explicit KEYWORD_DOMAINS above handles brand shortcuts.
 
-  // 6. Treat multi-word or special input as a Google Search query
+  // 6. Treat everything else as a Google Search query
   return `${SEARCH_ENGINE_URL}${encodeURIComponent(trimmed)}`;
 }

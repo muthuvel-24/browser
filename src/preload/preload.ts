@@ -118,7 +118,7 @@ const muthuAPI = {
   // ─── VPN / Proxy ────────────────────────────────────────────
 
   /** Enable VPN proxy for the given region. */
-  vpnEnable: (region: string): Promise<import('../main/types').VpnStatus> => {
+  vpnEnable: (region: import('../main/types').VpnRegion): Promise<import('../main/types').VpnStatus> => {
     return ipcRenderer.invoke(IPC.VPN_ENABLE, region);
   },
 
@@ -205,6 +205,23 @@ const muthuAPI = {
     };
     ipcRenderer.on(IPC.MEMORY_STATS_UPDATED, handler);
     return () => ipcRenderer.removeListener(IPC.MEMORY_STATS_UPDATED, handler);
+  },
+
+  // ─── Window Controls ────────────────────────────────────────
+
+  /** Minimize the browser window. */
+  windowMinimize: (): void => {
+    ipcRenderer.send('window:minimize');
+  },
+
+  /** Maximize / restore the browser window. */
+  windowMaximize: (): void => {
+    ipcRenderer.send('window:maximize');
+  },
+
+  /** Close the browser window. */
+  windowClose: (): void => {
+    ipcRenderer.send('window:close');
   },
 };
 
