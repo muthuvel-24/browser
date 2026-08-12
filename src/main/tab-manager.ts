@@ -661,13 +661,15 @@ export class TabManager {
       menu.popup();
     });
 
-    // Handle new window requests — open OAuth/auth popups in new tabs
-    // Google, Claude, and other services need popup windows for sign-in
+    // ── Intercept ALL new window attempts ──────────────────────
+    // This catches window.open(), target="_blank", OAuth popups, etc.
+    // EVERYTHING opens as a new tab inside Muthu Browser.
     wc.setWindowOpenHandler(({ url }) => {
-      if (url === 'about:blank') {
+      if (!url || url.startsWith('devtools://') || url.startsWith('data:') || url.startsWith('blob:')) {
         return { action: 'allow' };
       }
-      this.createTab(url);
+      console.log(`[Tabs] Intercepting new-window request → new tab: ${url}`);
+      setImmediate(() => this.createTab(url));
       return { action: 'deny' };
     });
   }

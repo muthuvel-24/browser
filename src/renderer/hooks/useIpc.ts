@@ -10,7 +10,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import type { TabInfo, VpnStatus, AdBlockStats, MemoryStats, DownloadItemInfo, FindMatchInfo, VpnRegion } from '../../main/types';
 
-/** Default initial tabs for web standalone mode */
+/** Default initial tab for web standalone mode — just one New Tab */
 const DEFAULT_INITIAL_TABS: TabInfo[] = [
   {
     id: 'tab-google',
@@ -18,39 +18,6 @@ const DEFAULT_INITIAL_TABS: TabInfo[] = [
     title: 'New Tab',
     favicon: '',
     status: 'active',
-    isLoading: false,
-    canGoBack: false,
-    canGoForward: false,
-    isPrivate: false,
-  },
-  {
-    id: 'tab-youtube',
-    url: 'https://www.youtube.com/results?search_query=jeans+movie+songs',
-    title: 'YouTube — Jeans Movie Songs',
-    favicon: '',
-    status: 'background',
-    isLoading: false,
-    canGoBack: false,
-    canGoForward: false,
-    isPrivate: false,
-  },
-  {
-    id: 'tab-drive',
-    url: 'https://drive.google.com',
-    title: 'Google Drive',
-    favicon: '',
-    status: 'background',
-    isLoading: false,
-    canGoBack: false,
-    canGoForward: false,
-    isPrivate: false,
-  },
-  {
-    id: 'tab-gemini',
-    url: 'https://gemini.google.com',
-    title: 'Google Gemini',
-    favicon: '',
-    status: 'background',
     isLoading: false,
     canGoBack: false,
     canGoForward: false,
