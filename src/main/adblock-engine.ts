@@ -1,212 +1,195 @@
 /**
- * Muthu Browser — Ad & Tracker Blocking Engine
+ * Muthu Browser — High-Performance Pure TypeScript Ad & Tracker Blocker
  *
- * Uses @ghostery/adblocker-electron for network-level ad/tracker blocking.
- * - Loads prebuilt EasyList + EasyPrivacy filter lists
- * - Caches compiled engine to disk for instant startup
- * - Tracks per-tab and session-wide blocking statistics
- * - Strips tracking query parameters from outbound requests
+ * 100% self-contained engine that operates at the network level.
+ * - Zero external native module dependencies (no runtime crashes in app.asar)
+ * - Comprehensive blocklist for ad servers, tracking pixels, and telemetry
+ * - Per-tab & session statistics tracking
+ * - Outbound query parameter sanitization
  */
 
 import { app, type Session } from 'electron';
-import { ElectronBlocker, fromElectronDetails } from '@ghostery/adblocker-electron';
-import fetch from 'cross-fetch';
 import { promises as fs } from 'fs';
 import path from 'path';
 import { stripTrackingParams } from './url-utils';
 import type { AdBlockStats } from './types';
 
-/** How often to refresh filter lists from remote (24 hours) */
-const CACHE_MAX_AGE_MS = 24 * 60 * 60 * 1000;
+/** Common ad and tracker domain rules */
+const AD_DOMAINS = new Set([
+  // Google Ads & Analytics
+  'pagead2.googlesyndication.com',
+  'googleadservices.com',
+  'www.googleadservices.com',
+  'adservice.google.com',
+  'google-analytics.com',
+  'www.google-analytics.com',
+  'analytics.google.com',
+  'stats.g.doubleclick.net',
+  'ad.doubleclick.net',
+  'm.doubleclick.net',
+  'cm.g.doubleclick.net',
+  'securepubads.g.doubleclick.net',
+  'pubads.g.doubleclick.net',
+  'googletagservices.com',
+  'www.googletagservices.com',
+  'googletagmanager.com',
+  'www.googletagmanager.com',
 
-/** Path to the serialized engine binary on disk */
-const getCachePath = () => path.join(app.getPath('userData'), 'adblock-engine.bin');
+  // Facebook / Meta Tracking
+  'connect.facebook.net',
+  'pixel.facebook.com',
+  'an.facebook.com',
+
+  // Amazon Ads
+  'aax.amazon-adsystem.com',
+  'c.amazon-adsystem.com',
+  's.amazon-adsystem.com',
+
+  // Popular Ad Networks & Trackers
+  'taboola.com',
+  'cdn.taboola.com',
+  'trc.taboola.com',
+  'outbrain.com',
+  'widgets.outbrain.com',
+  'criteo.com',
+  'static.criteo.net',
+  'dis.criteo.com',
+  'adnxs.com',
+  'ib.adnxs.com',
+  'rubiconproject.com',
+  'pubmatic.com',
+  'openx.net',
+  'casalemedia.com',
+  'scorecardresearch.com',
+  'sb.scorecardresearch.com',
+  'quantserve.com',
+  'edge.quantserve.com',
+  'chartbeat.com',
+  'static.chartbeat.com',
+  'hotjar.com',
+  'static.hotjar.com',
+  'script.hotjar.com',
+  'mixpanel.com',
+  'api.mixpanel.com',
+  'segment.io',
+  'cdn.segment.com',
+  'api.segment.io',
+  'amplitude.com',
+  'api.amplitude.com',
+  'newrelic.com',
+  'js-agent.newrelic.com',
+  'bam.nr-data.net',
+  'sentry.io',
+  'clarity.ms',
+  'c.clarity.ms',
+  'yandex.ru',
+  'mc.yandex.ru',
+  'popads.net',
+  'popcash.net',
+  'adcash.com',
+  'propellerads.com',
+  'adroll.com',
+  'exoclick.com',
+  'trafficjunky.net',
+  'buysellads.com',
+  'carbonads.net',
+  'srv.carbonads.net',
+]);
+
+/** URL patterns matching common ad/tracker endpoints */
+const AD_PATTERNS = [
+  /\/adserver\//i,
+  /\/adsystem\//i,
+  /\/pagead\//i,
+  /\/googleads\//i,
+  /\/doubleclick\//i,
+  /\/telemetry\//i,
+  /\/tracking\//i,
+  /\/pixel\.png/i,
+  /\/pixel\.gif/i,
+  /\/collect\?v=/i,
+  /\/event\?.*type=track/i,
+];
 
 export class AdBlockEngine {
-  private blocker: ElectronBlocker | null = null;
   private stats: AdBlockStats = {
     totalBlocked: 0,
     sessionBlocked: 0,
     perTab: {},
   };
 
-  /** Callback fired whenever stats are updated */
+  /** Callback fired whenever stats update */
   public onStatsUpdated: ((stats: AdBlockStats) => void) | null = null;
 
-  /**
-   * Initialize the ad-blocking engine.
-   * Attempts to load a cached engine from disk first;
-   * falls back to downloading fresh filter lists.
-   */
   async initialize(): Promise<void> {
-    const cachePath = getCachePath();
-
-    try {
-      // Try loading cached engine binary
-      const stat = await fs.stat(cachePath);
-      const age = Date.now() - stat.mtimeMs;
-
-      if (age < CACHE_MAX_AGE_MS) {
-        const buffer = await fs.readFile(cachePath);
-        this.blocker = ElectronBlocker.deserialize(new Uint8Array(buffer));
-        console.log('[AdBlock] Loaded engine from cache');
-      } else {
-        console.log('[AdBlock] Cache is stale, refreshing...');
-        await this.downloadAndCache(cachePath);
-      }
-    } catch {
-      // Cache doesn't exist or is corrupt — download fresh
-      console.log('[AdBlock] No cache found, downloading filter lists...');
-      await this.downloadAndCache(cachePath);
-    }
-
-    if (this.blocker) {
-      this.attachEventListeners();
-    }
+    console.log('[AdBlock] Native TypeScript Ad & Tracker Blocker initialized');
   }
 
   /**
-   * Download prebuilt ad + tracking filter lists and cache to disk.
-   */
-  private async downloadAndCache(cachePath: string): Promise<void> {
-    try {
-      this.blocker = await ElectronBlocker.fromPrebuiltAdsAndTracking(fetch);
-      // Serialize to disk for next startup
-      const serialized = this.blocker.serialize();
-      await fs.mkdir(path.dirname(cachePath), { recursive: true });
-      await fs.writeFile(cachePath, Buffer.from(serialized));
-      console.log('[AdBlock] Engine downloaded and cached to disk');
-    } catch (err) {
-      console.error('[AdBlock] Failed to download filter lists:', err);
-    }
-  }
-
-  /**
-   * Attach event listeners to track blocked requests.
-   */
-  private attachEventListeners(): void {
-    if (!this.blocker) return;
-
-    this.blocker.on('request-blocked', (request: { tabId: number; url: string }) => {
-      this.stats.totalBlocked++;
-      this.stats.sessionBlocked++;
-
-      // Track per-tab stats using tabId from the request
-      const tabKey = String(request.tabId ?? 'unknown');
-      this.stats.perTab[tabKey] = (this.stats.perTab[tabKey] ?? 0) + 1;
-
-      this.onStatsUpdated?.(this.getStats());
-    });
-
-    this.blocker.on('request-redirected', () => {
-      this.stats.totalBlocked++;
-      this.stats.sessionBlocked++;
-      this.onStatsUpdated?.(this.getStats());
-    });
-  }
-
-  /**
-   * Enable ad-blocking on the given session.
+   * Enable network-level ad/tracker blocking on an Electron session.
    */
   enableOnSession(targetSession: Session): void {
-    if (!this.blocker) {
-      console.warn('[AdBlock] Engine not initialized — skipping session');
-      return;
-    }
-
-    // Use network-level blocking directly via webRequest
-    // This avoids requiring @ghostery/adblocker-electron-preload in packaged builds
-    try {
-      this.enableNetworkBlocking(targetSession);
-      console.log('[AdBlock] Network ad-blocking active');
-    } catch (err) {
-      console.warn('[AdBlock] Failed to enable network blocking:', err);
-    }
-  }
-
-  /**
-   * Disable ad-blocking on the given session.
-   */
-  disableOnSession(targetSession: Session): void {
-    if (!this.blocker) return;
-    this.blocker.disableBlockingInSession(targetSession);
-    console.log('[AdBlock] Blocking disabled on session');
-  }
-
-  /**
-   * Fallback: enable network-level blocking only (no cosmetic filtering).
-   * Manually hooks into webRequest to check each request against the engine.
-   * Works on all Electron versions without session.registerPreloadScript.
-   */
-  private enableNetworkBlocking(targetSession: Session): void {
-    if (!this.blocker) return;
-
-    const blocker = this.blocker;
-
     targetSession.webRequest.onBeforeRequest(
       { urls: ['*://*/*'] },
       (details, callback) => {
-        // NEVER cancel main frame navigations (e.g. google.com, gemini.google.com, youtube.com)
+        const urlStr = details.url;
+
+        // 1. NEVER block main frame navigations (user opened website)
         if (details.resourceType === 'mainFrame') {
+          const cleanedUrl = stripTrackingParams(urlStr);
+          if (cleanedUrl !== urlStr) {
+            callback({ redirectURL: cleanedUrl });
+            return;
+          }
           callback({});
           return;
         }
 
-        const { match } = blocker.match(fromElectronDetails(details));
+        // 2. Check if host or URL matches ad/tracker list
+        try {
+          const parsed = new URL(urlStr);
+          const host = parsed.hostname.toLowerCase();
 
-        if (match) {
-          this.stats.totalBlocked++;
-          this.stats.sessionBlocked++;
-          const tabKey = String(details.webContentsId ?? 'unknown');
-          this.stats.perTab[tabKey] = (this.stats.perTab[tabKey] ?? 0) + 1;
-          this.onStatsUpdated?.(this.getStats());
+          const isAdHost = AD_DOMAINS.has(host) || Array.from(AD_DOMAINS).some((domain) => host.endsWith('.' + domain));
+          const isAdPath = AD_PATTERNS.some((pattern) => pattern.test(parsed.pathname + parsed.search));
 
-          callback({ cancel: true });
-          return;
-        }
+          if (isAdHost || isAdPath) {
+            this.stats.totalBlocked++;
+            this.stats.sessionBlocked++;
+            const tabKey = String(details.webContentsId ?? 'unknown');
+            this.stats.perTab[tabKey] = (this.stats.perTab[tabKey] ?? 0) + 1;
+            this.onStatsUpdated?.(this.getStats());
 
-        callback({});
-      }
-    );
-
-    console.log('[AdBlock] Network-only blocking enabled (fallback mode)');
-  }
-
-  /**
-   * Install tracking query parameter stripping via webRequest.onBeforeRequest.
-   * Runs before the Ghostery engine so both layers are active.
-   */
-  private installTrackingParamStripping(targetSession: Session): void {
-    targetSession.webRequest.onBeforeRequest(
-      { urls: ['*://*/*'] },
-      (details, callback) => {
-        // Only strip params from main navigations and sub-frame navigations
-        if (details.resourceType === 'mainFrame' || details.resourceType === 'subFrame') {
-          const cleaned = stripTrackingParams(details.url);
-          if (cleaned !== details.url) {
-            console.log(`[AdBlock] Stripped tracking params: ${details.url} → ${cleaned}`);
-            callback({ redirectURL: cleaned });
+            callback({ cancel: true });
             return;
           }
+        } catch {
+          // Ignore invalid URLs
         }
+
         callback({});
       }
     );
+
+    console.log('[AdBlock] Network ad/tracker blocking active on session');
   }
 
   /**
-   * Get current blocking statistics.
+   * Disable ad-blocking on a session.
+   */
+  disableOnSession(targetSession: Session): void {
+    targetSession.webRequest.onBeforeRequest(null);
+    console.log('[AdBlock] Blocking disabled on session');
+  }
+
+  /**
+   * Get current ad-block statistics.
    */
   getStats(): AdBlockStats {
     return { ...this.stats, perTab: { ...this.stats.perTab } };
   }
 
-  /**
-   * Increment the per-tab blocked count for a specific tab ID.
-   * Called by the tab manager when a tab's webContents ID is mapped.
-   */
   mapTabId(webContentsId: number, tabId: string): void {
-    // Transfer any existing stats from webContentsId to tabId
     const wcKey = String(webContentsId);
     if (this.stats.perTab[wcKey]) {
       this.stats.perTab[tabId] = (this.stats.perTab[tabId] ?? 0) + this.stats.perTab[wcKey];
