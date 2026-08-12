@@ -247,3 +247,145 @@
 .chrome-btn-secondary:hover {
   background: rgba(255, 255, 255, 0.08);
 }
+
+/* ─── Native App Portal Card ──────────────────────────────────── */
+/* Shown for sites that block iframe embedding (Drive, Gmail, Claude, GitHub, ChatGPT) */
+.native-portal-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+  padding: 40px 24px;
+  text-align: center;
+  overflow: hidden;
+}
+
+.native-portal-glow {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.native-portal-icon {
+  font-size: 64px;
+  margin-bottom: 18px;
+  position: relative;
+  z-index: 1;
+  filter: drop-shadow(0 4px 20px rgba(255,255,255,0.15));
+  animation: portal-float 3s ease-in-out infinite;
+}
+
+@keyframes portal-float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-8px); }
+}
+
+.native-portal-title {
+  font-size: 28px;
+  font-weight: 700;
+  color: #ffffff;
+  margin: 0 0 8px 0;
+  position: relative;
+  z-index: 1;
+  text-shadow: 0 2px 12px rgba(0,0,0,0.5);
+}
+
+.native-portal-desc {
+  font-size: 15px;
+  color: rgba(255, 255, 255, 0.6);
+  margin: 0 0 18px 0;
+  position: relative;
+  z-index: 1;
+}
+
+.native-portal-info {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 24px;
+  position: relative;
+  z-index: 1;
+}
+
+.native-portal-badge {
+  padding: 4px 14px;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 20px;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(8px);
+}
+
+.native-portal-message {
+  font-size: 13.5px;
+  color: rgba(255, 255, 255, 0.65);
+  max-width: 520px;
+  line-height: 1.7;
+  margin: 0 0 28px 0;
+  position: relative;
+  z-index: 1;
+  background: rgba(0, 0, 0, 0.25);
+  padding: 16px 20px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.native-portal-message code {
+  background: rgba(255, 255, 255, 0.15);
+  padding: 2px 8px;
+  border-radius: 6px;
+  font-family: 'Courier New', monospace;
+  font-size: 12px;
+  color: #93c5fd;
+}
+
+.native-portal-actions {
+  display: flex;
+  gap: 12px;
+  position: relative;
+  z-index: 1;
+  margin-bottom: 20px;
+}
+
+.native-portal-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 28px;
+  border-radius: 24px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.25s ease;
+  text-decoration: none;
+  border: none;
+}
+
+.native-portal-btn--primary {
+  background: linear-gradient(135deg, #4f86f7, #8b5cf6);
+  color: #ffffff;
+  box-shadow: 0 4px 20px rgba(79, 134, 247, 0.4);
+}
+
+.native-portal-btn--primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 28px rgba(79, 134, 247, 0.55);
+  background: linear-gradient(135deg, #6499ff, #9f70ff);
+}
+
+.native-portal-hint {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.4);
+  max-width: 440px;
+  line-height: 1.6;
+  position: relative;
+  z-index: 1;
+  margin: 0;
+}
+
