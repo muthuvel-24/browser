@@ -211,12 +211,15 @@ const WebPreviewCard: React.FC<WebPreviewCardProps> = ({ url, title, onNavigate 
               className="native-portal-btn native-portal-btn--primary"
               type="button"
               onClick={() => {
-                // In native Electron: navigate inside Muthu Browser tab
-                if (onNavigate) {
+                // Detect if running inside the native Electron desktop app
+                const isElectronShell = typeof window !== 'undefined' && Boolean((window as unknown as Record<string, unknown>).muthuAPI);
+                if (isElectronShell && onNavigate) {
+                  // Native Electron mode: navigate in Muthu Browser tab (WebContentsView handles it)
                   onNavigate(url);
                 } else {
-                  // Fallback for standalone web mode: open in same tab
-                  window.location.href = url;
+                  // Web preview mode (localhost:5174 in Edge/Chrome):
+                  // Open the site in the current browser window directly
+                  window.open(url, '_blank', 'noopener');
                 }
               }}
               title={`Open ${meta.label}`}
@@ -225,7 +228,8 @@ const WebPreviewCard: React.FC<WebPreviewCardProps> = ({ url, title, onNavigate 
             </button>
           </div>
           <p className="native-portal-hint">
-            💡 <strong>Tip:</strong> The native <strong>Muthu Browser desktop app</strong> opens all websites — Gmail, Drive, GitHub, Claude AI, ChatGPT — directly in its own window without any restrictions!
+            💡 <strong>Web mode:</strong> Clicking above opens {meta.label} in your current browser.
+            For the best experience, run <strong>npm start</strong> to use the full native Muthu Browser desktop app where all sites open directly inside your browser!
           </p>
         </div>
       </div>
