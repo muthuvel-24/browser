@@ -14,6 +14,7 @@ import './WebPreviewCard.css';
 interface WebPreviewCardProps {
   url: string;
   title: string;
+  onNavigate?: (url: string) => void;
 }
 
 // Verified 100% playable YouTube embeds (Jeans Movie Songs & A.R. Rahman Hits)
@@ -146,7 +147,7 @@ function getSiteMeta(url: string) {
   }
 }
 
-const WebPreviewCard: React.FC<WebPreviewCardProps> = ({ url, title }) => {
+const WebPreviewCard: React.FC<WebPreviewCardProps> = ({ url, title, onNavigate }) => {
   const isYT = isYouTubeUrl(url);
   const [ytQuery, setYtQuery] = useState('');
   const { embedUrl: initEmbed, isNativeOnly: initNative } = getEmbeddableUrl(url);
@@ -206,15 +207,22 @@ const WebPreviewCard: React.FC<WebPreviewCardProps> = ({ url, title }) => {
             <strong>✅ Run the native Muthu Browser desktop app</strong> (<code>npm start</code>) to access {meta.label} with full functionality — all websites open natively inside the app!
           </p>
           <div className="native-portal-actions">
-            <a
+            <button
               className="native-portal-btn native-portal-btn--primary"
-              href={url}
-              target="_blank"
-              rel="noopener noreferrer"
-              title={`Open ${meta.label} in this browser tab`}
+              type="button"
+              onClick={() => {
+                // In native Electron: navigate inside Muthu Browser tab
+                if (onNavigate) {
+                  onNavigate(url);
+                } else {
+                  // Fallback for standalone web mode: open in same tab
+                  window.location.href = url;
+                }
+              }}
+              title={`Open ${meta.label}`}
             >
               🚀 Open {meta.label}
-            </a>
+            </button>
           </div>
           <p className="native-portal-hint">
             💡 <strong>Tip:</strong> The native <strong>Muthu Browser desktop app</strong> opens all websites — Gmail, Drive, GitHub, Claude AI, ChatGPT — directly in its own window without any restrictions!

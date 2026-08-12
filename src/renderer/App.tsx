@@ -167,7 +167,7 @@ const App: React.FC = () => {
       {isElectronShell ? null : isSpeedDial ? (
         <ChromeNewTabPage onNavigate={navigateTo} />
       ) : (
-        <WebPreviewCard url={activeTab!.url} title={activeTab!.title} />
+        <WebPreviewCard url={activeTab!.url} title={activeTab!.title} onNavigate={navigateTo} />
       )}
 
       {/* ── 5. Find in Page Overlay ── */}

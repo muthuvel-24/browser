@@ -190,8 +190,10 @@ async function createMainWindow(): Promise<void> {
   const tabSession = session.fromPartition('persist:muthu');
   tabSession.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36');
 
-  // Allow nested frames inside tab pages (sites that set frame-ancestors / X-Frame-Options)
+  // Strip X-Frame-Options and CSP frame-ancestors from ALL sessions so that
+  // every website loads natively inside Muthu Browser without framing errors
   stripFrameAncestors(tabSession);
+  stripFrameAncestors(session.defaultSession);
   if (toolbarView) {
     stripFrameAncestors(toolbarView.webContents.session);
   }
@@ -412,6 +414,34 @@ app.whenReady().then(async () => {
   registerIpcHandlers();
   setupDownloadListener();
   await createMainWindow();
+
+  // ── Global: Intercept ALL new windows from ANY WebContents ──────────────
+  // This catches every window.open(), target="_blank", OAuth popup, etc.
+  // and redirects it into a new Muthu Browser tab instead of the system browser.
+  app.on('web-contents-created', (_event, contents) => {
+    // Block any attempt to open a new BrowserWindow / BrowserView
+    contents.setWindowOpenHandler(({ url }) => {
+      if (!url || url === 'about:blank' || url.startsWith('devtools://')) {
+        return { action: 'allow' };
+      }
+      // Open all URLs as new tabs inside Muthu Browser
+      setImmediate(() => {
+        if (tabManager) {
+          tabManager.createTab(url);
+        }
+      });
+      return { action: 'deny' };
+    });
+
+    // Also intercept navigation that tries to open external URLs
+    contents.on('will-navigate', (_navEvent, url) => {
+      // Only intercept if this is NOT one of our registered tab WebContents
+      // (i.e., it belongs to an iframe or sub-frame inside a tab)
+      if (url && !url.startsWith('devtools://') && !url.startsWith('data:')) {
+        // Let normal navigation proceed; setWindowOpenHandler above handles popups
+      }
+    });
+  });
 
   app.on('activate', () => {
     // macOS: re-create window when dock icon is clicked
