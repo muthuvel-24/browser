@@ -5,7 +5,7 @@
   "description": "Muthu — A privacy-first web browser with built-in ad/tracker blocking, VPN proxy, and intelligent memory optimization.",
   "main": ".vite/build/main.js",
   "scripts": {
-    "start": "electron-forge start",
+    "start": "concurrently -k \"vite --port 5174 --strictPort\" \"electron-forge start\"",
     "package": "electron-forge package",
     "make": "electron-forge make",
     "lint": "tsc --noEmit"
@@ -23,6 +23,7 @@
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
     "@vitejs/plugin-react": "^4.3.4",
+    "concurrently": "^10.0.4",
     "electron": "^33.4.0",
     "playwright": "^1.62.1",
     "typescript": "^5.7.0",
