@@ -30,10 +30,6 @@ const AD_DOMAINS = new Set([
   'cm.g.doubleclick.net',
   'securepubads.g.doubleclick.net',
   'pubads.g.doubleclick.net',
-  'googletagservices.com',
-  'www.googletagservices.com',
-  'googletagmanager.com',
-  'www.googletagmanager.com',
 
   // Facebook / Meta Tracking
   'connect.facebook.net',

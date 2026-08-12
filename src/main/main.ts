@@ -61,6 +61,8 @@ function stripFrameAncestors(targetSession: Session): void {
 app.commandLine.appendSwitch('js-flags', '--max-old-space-size=256');
 app.commandLine.appendSwitch('gpu-rasterization-msaa-sample-count', '0');
 app.commandLine.appendSwitch('renderer-process-limit', '8');
+// Disable QUIC protocol (HTTP/3 over UDP) to prevent net::ERR_QUIC_PROTOCOL_ERROR on Gmail/Google services
+app.commandLine.appendSwitch('disable-quic');
 // Disable certificate errors so all HTTPS sites load
 app.commandLine.appendSwitch('ignore-certificate-errors');
 // Allow all mixed content
