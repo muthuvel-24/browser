@@ -114,16 +114,14 @@ export class AdBlockEngine {
       return;
     }
 
-    // Enable network-level blocking (request interception + cosmetic filtering)
+    // Use network-level blocking directly via webRequest
+    // This avoids requiring @ghostery/adblocker-electron-preload in packaged builds
     try {
-      this.blocker.enableBlockingInSession(targetSession);
-      console.log('[AdBlock] Full blocking enabled on session (network + cosmetic)');
-    } catch (err) {
-      console.warn('[AdBlock] Full blocking failed, falling back to network-only:', err);
-      // Fallback: manually attach webRequest listeners for network-level blocking
       this.enableNetworkBlocking(targetSession);
+      console.log('[AdBlock] Network ad-blocking active');
+    } catch (err) {
+      console.warn('[AdBlock] Failed to enable network blocking:', err);
     }
-
   }
 
   /**
