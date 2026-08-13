@@ -511,6 +511,18 @@ export class TabManager {
   private attachWebContentsEvents(tabId: string, view: WebContentsView): void {
     const wc = view.webContents;
 
+    // Inject Chrome navigator properties & remove webdriver signal for Google Sign-In
+    wc.on('dom-ready', () => {
+      wc.executeJavaScript(`
+        try {
+          Object.defineProperty(navigator, 'webdriver', { get: () => false, configurable: true });
+          if (!window.chrome) {
+            window.chrome = { runtime: {}, loadTimes: function() {}, csi: function() {}, app: {} };
+          }
+        } catch(e) {}
+      `).catch(() => {});
+    });
+
     // Track page title changes
     wc.on('page-title-updated', (_event, title) => {
       const record = this.tabs.get(tabId);

@@ -63,6 +63,8 @@ app.commandLine.appendSwitch('gpu-rasterization-msaa-sample-count', '0');
 app.commandLine.appendSwitch('renderer-process-limit', '8');
 // Disable QUIC protocol (HTTP/3 over UDP) to prevent net::ERR_QUIC_PROTOCOL_ERROR on Gmail/Google services
 app.commandLine.appendSwitch('disable-quic');
+// Disable Chromium automation signal checked by Google Sign-In ("This browser or app may not be secure")
+app.commandLine.appendSwitch('disable-blink-features', 'AutomationControlled');
 // Disable certificate errors so all HTTPS sites load
 app.commandLine.appendSwitch('ignore-certificate-errors');
 // Allow all mixed content
@@ -78,8 +80,26 @@ let memoryManager: MemoryManager;
 let adBlockEngine: AdBlockEngine;
 let proxyManager: ProxyManager;
 
-// ─── Chrome-compatible User-Agent ───────────────────────────────
+// ─── Chrome-compatible User-Agent & Client Hints ────────────────
 const CHROME_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
+
+/**
+ * Configure User-Agent and Client Hints headers on a session to match standard Google Chrome Desktop.
+ * Prevents Google Sign-In ("This browser or app may not be secure") blocks.
+ */
+function configureChromeHeaders(targetSession: Session): void {
+  targetSession.webRequest.onBeforeSendHeaders((details, callback) => {
+    const requestHeaders = { ...(details.requestHeaders ?? {}) };
+    requestHeaders['User-Agent'] = CHROME_UA;
+    requestHeaders['sec-ch-ua'] = '"Google Chrome";v="131", "Chromium";v="131", "Not_A Brand";v="24"';
+    requestHeaders['sec-ch-ua-mobile'] = '?0';
+    requestHeaders['sec-ch-ua-platform'] = '"Windows"';
+    requestHeaders['sec-ch-ua-arch'] = '"x86"';
+    requestHeaders['sec-ch-ua-bitness'] = '"64"';
+    requestHeaders['sec-ch-ua-full-version-list'] = '"Google Chrome";v="131.0.6778.205", "Chromium";v="131.0.6778.205", "Not_A Brand";v="24.0.0.0"';
+    callback({ requestHeaders });
+  });
+}
 
 // ─── URL validation helper ──────────────────────────────────────
 function shouldOpenInMuthu(url: string): boolean {
@@ -131,6 +151,10 @@ async function createMainWindow(): Promise<void> {
   const tabSession = session.fromPartition('persist:muthu');
   tabSession.setUserAgent(CHROME_UA);
   session.defaultSession.setUserAgent(CHROME_UA);
+
+  // Configure Chrome headers & Client Hints to satisfy Google Sign-In
+  configureChromeHeaders(tabSession);
+  configureChromeHeaders(session.defaultSession);
 
   // Strip X-Frame-Options & CSP frame-ancestors from ALL sessions
   stripFrameAncestors(tabSession);
