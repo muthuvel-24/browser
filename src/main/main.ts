@@ -65,10 +65,6 @@ app.commandLine.appendSwitch('renderer-process-limit', '8');
 app.commandLine.appendSwitch('disable-quic');
 // Disable Chromium automation signal checked by Google Sign-In ("This browser or app may not be secure")
 app.commandLine.appendSwitch('disable-blink-features', 'AutomationControlled');
-// Disable certificate errors so all HTTPS sites load
-app.commandLine.appendSwitch('ignore-certificate-errors');
-// Allow all mixed content
-app.commandLine.appendSwitch('allow-running-insecure-content');
 
 declare const MAIN_WINDOW_VITE_DEV_SERVER_URL: string | undefined;
 declare const MAIN_WINDOW_VITE_NAME: string;
@@ -98,6 +94,25 @@ function configureChromeHeaders(targetSession: Session): void {
     requestHeaders['sec-ch-ua-bitness'] = '"64"';
     requestHeaders['sec-ch-ua-full-version-list'] = '"Google Chrome";v="131.0.6778.205", "Chromium";v="131.0.6778.205", "Not_A Brand";v="24.0.0.0"';
     callback({ requestHeaders });
+  });
+}
+
+// ─── Permission Hardening ───────────────────────────────────────
+/** Allowed benign permissions by default */
+const SAFE_PERMISSIONS = new Set(['fullscreen', 'clipboard-read', 'clipboard-sanitized-write']);
+
+/**
+ * Secure Permission Request Handler.
+ * Restricts dangerous permissions (camera, microphone, geolocation) by default,
+ * allowing only explicitly whitelisted safe permissions.
+ */
+function setupSecurePermissions(targetSession: Session): void {
+  targetSession.setPermissionRequestHandler((_webContents, permission, callback) => {
+    const isAllowed = SAFE_PERMISSIONS.has(permission);
+    if (!isAllowed) {
+      console.warn(`[Security] Restricted unprompted permission request: ${permission}`);
+    }
+    callback(isAllowed);
   });
 }
 
@@ -163,13 +178,9 @@ async function createMainWindow(): Promise<void> {
     stripFrameAncestors(toolbarView.webContents.session);
   }
 
-  // Allow all permissions (camera, mic, notifications, etc.)
-  tabSession.setPermissionRequestHandler((_webContents, _permission, callback) => {
-    callback(true);
-  });
-  session.defaultSession.setPermissionRequestHandler((_webContents, _permission, callback) => {
-    callback(true);
-  });
+  // Enforce secure permission handlers
+  setupSecurePermissions(tabSession);
+  setupSecurePermissions(session.defaultSession);
 
   // ─── Tab Manager ─────────────────────────────────────────────
   tabManager = new TabManager(mainWindow);

@@ -112,14 +112,35 @@ const KEYWORD_DOMAINS: Record<string, string> = {
   'ebay': 'https://www.ebay.com',
 };
 
+/** Allowed safe schemes for navigation */
+const ALLOWED_SCHEMES = new Set(['http:', 'https:', 'about:', 'data:']);
+
+/**
+ * Validates if a URL uses an allowed safe scheme.
+ * Disallows dangerous schemes like javascript:, vbscript:, file: (unless explicitly approved).
+ */
+export function isAllowedScheme(urlString: string): boolean {
+  try {
+    const parsed = new URL(urlString);
+    return ALLOWED_SCHEMES.has(parsed.protocol.toLowerCase());
+  } catch {
+    // If not a valid URL structure yet, check raw prefix
+    const lower = urlString.trim().toLowerCase();
+    if (lower.startsWith('javascript:') || lower.startsWith('vbscript:') || lower.startsWith('file:')) {
+      return false;
+    }
+    return true;
+  }
+}
+
 /**
  * Normalizes user input from the address bar into a valid URL.
  *
+ * - Enforces strict URI scheme safety (blocks javascript:, vbscript:)
  * - Handles explicit protocols (https://, http://)
  * - Resolves direct brand keywords (e.g., "amazon" → "https://www.amazon.com")
  * - Handles bare domains (e.g., "amazon.in", "github.com")
- * - Single words without spaces resolve to https://www.[word].com
- * - Inputs with spaces are treated as Google searches
+ * - Inputs with spaces or unmapped single words are treated as Google searches
  *
  * @param input - Raw address bar input
  * @returns A fully-qualified URL
@@ -130,13 +151,19 @@ export function normalizeUrl(input: string): string {
 
   const lower = trimmed.toLowerCase();
 
+  // Block dangerous schemes (e.g., javascript:alert(1), vbscript:)
+  if (lower.startsWith('javascript:') || lower.startsWith('vbscript:')) {
+    console.warn(`[Security] Blocked execution of dangerous scheme: ${trimmed}`);
+    return `${SEARCH_ENGINE_URL}${encodeURIComponent(trimmed)}`;
+  }
+
   // 1. Explicit keyword match (e.g., "amazon", "claude")
   if (KEYWORD_DOMAINS[lower]) {
     return KEYWORD_DOMAINS[lower];
   }
 
-  // 2. Already has a protocol (http://, https://, file://)
-  if (/^https?:\/\//i.test(trimmed) || /^file:\/\//i.test(trimmed)) {
+  // 2. Already has a protocol (http://, https://)
+  if (/^https?:\/\//i.test(trimmed)) {
     return stripTrackingParams(trimmed);
   }
 
