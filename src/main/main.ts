@@ -409,6 +409,9 @@ function registerIpcHandlers(): void {
   });
 }
 
+// ─── Global User-Agent Fallback ────────────────────────────────
+app.userAgentFallback = CHROME_UA;
+
 // ─── App Lifecycle ──────────────────────────────────────────────
 app.whenReady().then(async () => {
   registerIpcHandlers();

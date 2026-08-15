@@ -37,6 +37,11 @@ const config: ForgeConfig = {
           config: 'vite.preload.config.ts',
           target: 'preload',
         },
+        {
+          entry: 'src/preload/tab-preload.ts',
+          config: 'vite.preload.config.ts',
+          target: 'preload',
+        },
       ],
       // Renderer processes served by Vite dev server / built for production
       renderer: [

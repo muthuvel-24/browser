@@ -15,6 +15,7 @@
 
 import { WebContentsView, session, Menu, type BaseWindow } from 'electron';
 import { randomUUID } from 'node:crypto';
+import path from 'path';
 import type { TabRecord, TabInfo, TabStatus, FindMatchInfo } from './types';
 import { getSpeedDialHtml } from './speeddial-html';
 import { stripTrackingParams } from './url-utils';
@@ -28,6 +29,9 @@ const SPEED_DIAL_DATA_URL = 'data:text/html;charset=utf-8,' + encodeURIComponent
 
 /** Default new-tab URL */
 const NEW_TAB_URL = 'speeddial';
+
+/** Chrome Desktop User-Agent */
+const CHROME_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
 
 /**
  * Generate a unique tab ID using crypto.
@@ -77,9 +81,10 @@ export class TabManager {
     const targetUrl = url ?? NEW_TAB_URL;
     const partitionName = isPrivate ? `incognito:${tabId}` : 'persist:muthu';
 
-    // Create a new WebContentsView with sandboxed, isolated web preferences
+    // Create a new WebContentsView with sandboxed, isolated web preferences and tab preload
     const view = new WebContentsView({
       webPreferences: {
+        preload: path.join(__dirname, 'tab-preload.js'),
         sandbox: true,
         contextIsolation: true,
         nodeIntegration: false,
@@ -89,10 +94,10 @@ export class TabManager {
       },
     });
 
-    // Set Chrome-like User-Agent on session
+    // Set Chrome User-Agent on session and webContents
     const tabSession = session.fromPartition(partitionName);
-    tabSession.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36');
-    view.webContents.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36');
+    tabSession.setUserAgent(CHROME_UA);
+    view.webContents.setUserAgent(CHROME_UA);
 
     // Create the tab record
     const record: TabRecord = {
@@ -414,6 +419,7 @@ export class TabManager {
     // Create fresh WebContentsView
     const view = new WebContentsView({
       webPreferences: {
+        preload: path.join(__dirname, 'tab-preload.js'),
         sandbox: true,
         contextIsolation: true,
         nodeIntegration: false,
@@ -423,7 +429,7 @@ export class TabManager {
       },
     });
 
-    view.webContents.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36');
+    view.webContents.setUserAgent(CHROME_UA);
 
     this.views.set(tabId, view);
 

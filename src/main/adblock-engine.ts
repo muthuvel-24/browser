@@ -16,20 +16,25 @@ import type { AdBlockStats } from './types';
 
 /** Common ad and tracker domain rules */
 const AD_DOMAINS = new Set([
-  // Google Ads & Analytics
+  // YouTube & Google Ad Serving
+  'ad.youtube.com',
+  'ads.youtube.com',
+  's.youtube.com',
+  'googleads.g.doubleclick.net',
+  'static.doubleclick.net',
+  'adservice.google.com',
   'pagead2.googlesyndication.com',
   'googleadservices.com',
   'www.googleadservices.com',
-  'adservice.google.com',
-  'google-analytics.com',
-  'www.google-analytics.com',
-  'analytics.google.com',
   'stats.g.doubleclick.net',
   'ad.doubleclick.net',
   'm.doubleclick.net',
   'cm.g.doubleclick.net',
   'securepubads.g.doubleclick.net',
   'pubads.g.doubleclick.net',
+  'google-analytics.com',
+  'www.google-analytics.com',
+  'analytics.google.com',
 
   // Facebook / Meta Tracking
   'connect.facebook.net',
@@ -94,9 +99,19 @@ const AD_DOMAINS = new Set([
 
 /** URL patterns matching common ad/tracker endpoints */
 const AD_PATTERNS = [
+  // YouTube Video Ads & Telemetry
+  /\/api\/stats\/ads/i,
+  /\/pagead\//i,
+  /\/ptracking/i,
+  /\/youtubei\/v1\/att\/get/i,
+  /\/youtubei\/v1\/player\/ad_break/i,
+  /\/get_midroll_info/i,
+  /[?&]adformat=/i,
+  /[?&]oad=/i,
+
+  // General Ad & Tracking Patterns
   /\/adserver\//i,
   /\/adsystem\//i,
-  /\/pagead\//i,
   /\/googleads\//i,
   /\/doubleclick\//i,
   /\/telemetry\//i,
