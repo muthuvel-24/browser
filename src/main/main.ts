@@ -362,6 +362,14 @@ function registerIpcHandlers(): void {
     }
   });
 
+  ipcMain.handle(IPC.TOOLBAR_RESIZE, (_event, height: number) => {
+    if (toolbarView && mainWindow) {
+      const bounds = mainWindow.getContentBounds();
+      const h = height && height > 0 ? height : 110;
+      toolbarView.setBounds({ x: 0, y: 0, width: bounds.width, height: h });
+    }
+  });
+
   ipcMain.handle(IPC.CONTENT_FOCUS, () => tabManager?.focusActiveTab());
 
   ipcMain.handle(IPC.FIND_IN_PAGE, (_event, text: string, options?: { forward?: boolean; findNext?: boolean }) => {

@@ -20,6 +20,7 @@ export const IPC = {
   TAB_UPDATED:       'tab:updated',       // main → renderer
   TAB_LIST:          'tab:list',           // renderer → main (get all tabs)
   TOOLBAR_FOCUS:     'toolbar:focus',
+  TOOLBAR_RESIZE:    'toolbar:resize',
   CONTENT_FOCUS:     'content:focus',
 
   // ─── Find in Page ──────────────────────────────────────────────

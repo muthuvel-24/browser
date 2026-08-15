@@ -226,6 +226,18 @@ if (window.location.hostname.includes('youtube.com')) {
   // Run skip loop every 50 milliseconds
   setInterval(skipAds, 50);
 
+  // Hook into YouTube SPA navigation and page events
+  window.addEventListener('yt-navigate-finish', () => {
+    injectStyles();
+    skipAds();
+  });
+  window.addEventListener('yt-page-data-updated', skipAds);
+  window.addEventListener('load', skipAds);
+
+  // Hook video play/timeupdate events for instant ad destruction
+  document.addEventListener('play', skipAds, true);
+  document.addEventListener('timeupdate', skipAds, true);
+
   // Also hook into DOM mutations for instant response
   const observer = new MutationObserver(() => {
     skipAds();

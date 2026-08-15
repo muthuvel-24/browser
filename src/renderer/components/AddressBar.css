@@ -158,6 +158,58 @@
   color: #000000;
 }
 
+/* ── Prominent Chrome VPN Toolbar Button ───────────────────────── */
+
+.vpn-toolbar-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  padding: 0 10px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: var(--radius-pill);
+  color: var(--text-primary);
+  font-family: inherit;
+  font-size: 11.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  user-select: none;
+}
+
+.vpn-toolbar-pill:hover {
+  background: rgba(255, 255, 255, 0.14);
+  border-color: rgba(255, 255, 255, 0.25);
+}
+
+.vpn-toolbar-pill--active {
+  background: rgba(0, 230, 118, 0.15);
+  border-color: rgba(0, 230, 118, 0.4);
+  color: #00E676;
+}
+
+.vpn-pill-icon {
+  font-size: 12px;
+}
+
+.vpn-pill-text {
+  letter-spacing: 0.2px;
+}
+
+.vpn-pill-indicator {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #5f6368;
+  transition: background var(--transition-fast);
+}
+
+.vpn-pill-indicator--on {
+  background: #00E676;
+  box-shadow: 0 0 6px #00E676;
+}
+
 /* ── SSL Security Indicator ─────────────────────────────────────── */
 
 .ssl-indicator {

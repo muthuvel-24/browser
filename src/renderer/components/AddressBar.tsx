@@ -228,14 +228,18 @@ const AddressBar: React.FC<AddressBarProps> = ({
           )}
         </button>
 
-        {/* VPN Toggle Control Panel Button */}
+        {/* Prominent Chrome VPN Control Button */}
         <button
-          className="url-action-btn"
-          title={`Chrome VPN: ${vpnStatus?.enabled ? 'Protected (' + vpnStatus.region + ')' : 'Disconnected'}`}
+          className={`vpn-toolbar-pill ${vpnStatus?.enabled ? 'vpn-toolbar-pill--active' : ''}`}
+          title={`Chrome VPN: ${vpnStatus?.enabled ? 'Protected (' + vpnStatus.region + ')' : 'Disconnected — Click to configure'}`}
           onClick={onToggleVpnModal}
+          id="btn-vpn-toolbar"
         >
-          ⚡
-          {vpnStatus?.enabled && <span className="action-badge action-badge--active">ON</span>}
+          <span className="vpn-pill-icon">{vpnStatus?.enabled ? '⚡' : '🛡️'}</span>
+          <span className="vpn-pill-text">
+            {vpnStatus?.enabled ? `VPN: ${vpnStatus.region}` : 'VPN: OFF'}
+          </span>
+          <span className={`vpn-pill-indicator ${vpnStatus?.enabled ? 'vpn-pill-indicator--on' : ''}`} />
         </button>
 
         {/* Find in Page */}

@@ -76,6 +76,11 @@ const muthuAPI = {
     return ipcRenderer.invoke(IPC.TOOLBAR_FOCUS);
   },
 
+  /** Resize toolbar height (for dropdown modals like VPN). */
+  setToolbarHeight: (height: number): Promise<void> => {
+    return ipcRenderer.invoke(IPC.TOOLBAR_RESIZE, height);
+  },
+
   /** Focus the active web content view. */
   focusContent: (): Promise<void> => {
     return ipcRenderer.invoke(IPC.CONTENT_FOCUS);

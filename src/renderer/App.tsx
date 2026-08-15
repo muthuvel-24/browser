@@ -59,6 +59,13 @@ const App: React.FC = () => {
   // Check if active tab is speeddial/newtab page
   const isSpeedDial = !activeTab || !activeTab.url || activeTab.url === 'speeddial' || activeTab.url === 'about:blank';
 
+  // Expand toolbar height when VPN modal or dropdown opens, restore to 110px on close
+  useEffect(() => {
+    if (window.muthuAPI?.setToolbarHeight) {
+      window.muthuAPI.setToolbarHeight(showVpnModal ? 480 : 110);
+    }
+  }, [showVpnModal]);
+
   // ─── Global Keyboard Shortcuts ───────────────────────────────
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
