@@ -43,22 +43,6 @@ const TabBar: React.FC<TabBarProps> = ({
   onNewPrivateTab,
 }) => {
 
-  const handleMinimize = () => {
-    window.muthuAPI?.windowMinimize?.();
-  };
-
-  const handleMaximize = () => {
-    window.muthuAPI?.windowMaximize?.();
-  };
-
-  const handleClose = () => {
-    if (window.muthuAPI?.windowClose) {
-      window.muthuAPI.windowClose();
-    } else {
-      window.close();
-    }
-  };
-
   return (
     <div className="chrome-tab-strip" id="chrome-tab-strip">
       <div className="chrome-tab-list">
@@ -112,13 +96,6 @@ const TabBar: React.FC<TabBarProps> = ({
             🕶️
           </button>
         )}
-      </div>
-
-      {/* Window Controls */}
-      <div className="window-controls">
-        <button className="window-control-btn" title="Minimize" onClick={handleMinimize}>—</button>
-        <button className="window-control-btn" title="Maximize" onClick={handleMaximize}>▢</button>
-        <button className="window-control-btn window-control-btn--close" title="Close" onClick={handleClose}>✕</button>
       </div>
     </div>
   );
