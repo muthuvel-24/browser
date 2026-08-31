@@ -44,6 +44,17 @@ function isSpeedDialUrl(url: string): boolean {
   return url === SPEED_DIAL_DATA_URL;
 }
 
+/**
+ * Safely check if a WebContentsView and its webContents are alive and not destroyed.
+ */
+function isWebContentsAlive(view?: WebContentsView | null): view is WebContentsView {
+  try {
+    return Boolean(view && view.webContents && !view.webContents.isDestroyed());
+  } catch {
+    return false;
+  }
+}
+
 export class TabManager {
   private tabs = new Map<string, TabRecord>();
   private views = new Map<string, WebContentsView>();
@@ -227,8 +238,10 @@ export class TabManager {
       } catch { /* already removed */ }
 
       // Destroy the WebContents to free memory
-      if (!view.webContents.isDestroyed()) {
-        view.webContents.close();
+      if (isWebContentsAlive(view)) {
+        try {
+          view.webContents.close();
+        } catch { /* already closed */ }
       }
     }
 
@@ -263,7 +276,7 @@ export class TabManager {
    */
   navigateTo(tabId: string, url: string): void {
     const view = this.views.get(tabId);
-    if (!view || view.webContents.isDestroyed()) return;
+    if (!isWebContentsAlive(view)) return;
 
     const actualUrl = (url === 'speeddial' || url === 'about:blank' || !url)
       ? SPEED_DIAL_DATA_URL
@@ -289,42 +302,50 @@ export class TabManager {
   focusActiveTab(): void {
     if (!this.activeTabId) return;
     const view = this.views.get(this.activeTabId);
-    if (view && !view.webContents.isDestroyed()) {
+    if (isWebContentsAlive(view)) {
       view.webContents.focus();
     }
   }
 
   goBack(tabId: string): void {
     const view = this.views.get(tabId);
-    if (view && !view.webContents.isDestroyed()) {
-      if (view.webContents.navigationHistory.canGoBack()) {
-        view.webContents.navigationHistory.goBack();
-      }
+    if (isWebContentsAlive(view)) {
+      try {
+        if (view.webContents.navigationHistory.canGoBack()) {
+          view.webContents.navigationHistory.goBack();
+        }
+      } catch { /* ignore */ }
       setTimeout(() => this.broadcastTabsUpdate(), 100);
     }
   }
 
   goForward(tabId: string): void {
     const view = this.views.get(tabId);
-    if (view && !view.webContents.isDestroyed()) {
-      if (view.webContents.navigationHistory.canGoForward()) {
-        view.webContents.navigationHistory.goForward();
-      }
+    if (isWebContentsAlive(view)) {
+      try {
+        if (view.webContents.navigationHistory.canGoForward()) {
+          view.webContents.navigationHistory.goForward();
+        }
+      } catch { /* ignore */ }
       setTimeout(() => this.broadcastTabsUpdate(), 100);
     }
   }
 
   reload(tabId: string): void {
     const view = this.views.get(tabId);
-    if (view && !view.webContents.isDestroyed()) {
-      view.webContents.reload();
+    if (isWebContentsAlive(view)) {
+      try {
+        view.webContents.reload();
+      } catch { /* ignore */ }
     }
   }
 
   stopLoading(tabId: string): void {
     const view = this.views.get(tabId);
-    if (view && !view.webContents.isDestroyed()) {
-      view.webContents.stop();
+    if (isWebContentsAlive(view)) {
+      try {
+        view.webContents.stop();
+      } catch { /* ignore */ }
     }
   }
 
@@ -337,14 +358,16 @@ export class TabManager {
   sleepTab(tabId: string): void {
     const view = this.views.get(tabId);
     const record = this.tabs.get(tabId);
-    if (!view || !record || record.status === 'discarded') return;
+    if (!view || !record || record.status === 'discarded' || !isWebContentsAlive(view)) return;
 
     // Capture scroll position before sleep
     this.captureScrollPosition(tabId);
 
     // Enable aggressive background throttling
-    view.webContents.setBackgroundThrottling(true);
-    view.webContents.setAudioMuted(true);
+    try {
+      view.webContents.setBackgroundThrottling(true);
+      view.webContents.setAudioMuted(true);
+    } catch { /* ignore */ }
 
     record.status = 'sleeping';
     this.broadcastTabsUpdate();
@@ -357,10 +380,12 @@ export class TabManager {
   private wakeTab(tabId: string): void {
     const view = this.views.get(tabId);
     const record = this.tabs.get(tabId);
-    if (!view || !record) return;
+    if (!view || !record || !isWebContentsAlive(view)) return;
 
-    view.webContents.setBackgroundThrottling(false);
-    view.webContents.setAudioMuted(false);
+    try {
+      view.webContents.setBackgroundThrottling(false);
+      view.webContents.setAudioMuted(false);
+    } catch { /* ignore */ }
 
     record.status = 'background';
     console.log(`[Tabs] Tab ${tabId} woke up`);
@@ -378,11 +403,13 @@ export class TabManager {
     if (!view || !record || tabId === this.activeTabId) return;
 
     // Capture final state
-    if (!view.webContents.isDestroyed()) {
-      const currentUrl = view.webContents.getURL();
-      record.url = isSpeedDialUrl(currentUrl) ? 'speeddial' : currentUrl || record.url;
-      record.title = view.webContents.getTitle() || record.title;
-      this.captureScrollPosition(tabId);
+    if (isWebContentsAlive(view)) {
+      try {
+        const currentUrl = view.webContents.getURL();
+        record.url = isSpeedDialUrl(currentUrl) ? 'speeddial' : currentUrl || record.url;
+        record.title = view.webContents.getTitle() || record.title;
+        this.captureScrollPosition(tabId);
+      } catch { /* ignore */ }
     }
 
     // Remove from window and destroy WebContents
@@ -390,8 +417,10 @@ export class TabManager {
       this.window.contentView.removeChildView(view);
     } catch { /* already removed */ }
 
-    if (!view.webContents.isDestroyed()) {
-      view.webContents.close();
+    if (isWebContentsAlive(view)) {
+      try {
+        view.webContents.close();
+      } catch { /* ignore */ }
     }
 
     this.views.delete(tabId);
@@ -710,16 +739,20 @@ export class TabManager {
   findInPage(text: string, options?: { forward?: boolean; findNext?: boolean }): void {
     if (!this.activeTabId) return;
     const view = this.views.get(this.activeTabId);
-    if (view && !view.webContents.isDestroyed()) {
-      view.webContents.findInPage(text, options);
+    if (isWebContentsAlive(view)) {
+      try {
+        view.webContents.findInPage(text, options);
+      } catch { /* ignore */ }
     }
   }
 
   findStop(action: 'clearSelection' | 'keepSelection' | 'activateSelection' = 'clearSelection'): void {
     if (!this.activeTabId) return;
     const view = this.views.get(this.activeTabId);
-    if (view && !view.webContents.isDestroyed()) {
-      view.webContents.stopFindInPage(action);
+    if (isWebContentsAlive(view)) {
+      try {
+        view.webContents.stopFindInPage(action);
+      } catch { /* ignore */ }
     }
   }
 
@@ -728,11 +761,13 @@ export class TabManager {
   zoomIn(): number {
     if (!this.activeTabId) return 1;
     const view = this.views.get(this.activeTabId);
-    if (view && !view.webContents.isDestroyed()) {
-      const current = view.webContents.getZoomFactor();
-      const next = Math.min(current + 0.1, 3.0);
-      view.webContents.setZoomFactor(next);
-      return next;
+    if (isWebContentsAlive(view)) {
+      try {
+        const current = view.webContents.getZoomFactor();
+        const next = Math.min(current + 0.1, 3.0);
+        view.webContents.setZoomFactor(next);
+        return next;
+      } catch { /* ignore */ }
     }
     return 1;
   }
@@ -740,11 +775,13 @@ export class TabManager {
   zoomOut(): number {
     if (!this.activeTabId) return 1;
     const view = this.views.get(this.activeTabId);
-    if (view && !view.webContents.isDestroyed()) {
-      const current = view.webContents.getZoomFactor();
-      const next = Math.max(current - 0.1, 0.3);
-      view.webContents.setZoomFactor(next);
-      return next;
+    if (isWebContentsAlive(view)) {
+      try {
+        const current = view.webContents.getZoomFactor();
+        const next = Math.max(current - 0.1, 0.3);
+        view.webContents.setZoomFactor(next);
+        return next;
+      } catch { /* ignore */ }
     }
     return 1;
   }
@@ -752,8 +789,10 @@ export class TabManager {
   zoomReset(): number {
     if (!this.activeTabId) return 1;
     const view = this.views.get(this.activeTabId);
-    if (view && !view.webContents.isDestroyed()) {
-      view.webContents.setZoomFactor(1.0);
+    if (isWebContentsAlive(view)) {
+      try {
+        view.webContents.setZoomFactor(1.0);
+      } catch { /* ignore */ }
     }
     return 1;
   }
@@ -761,12 +800,14 @@ export class TabManager {
   toggleDevTools(): void {
     if (!this.activeTabId) return;
     const view = this.views.get(this.activeTabId);
-    if (view && !view.webContents.isDestroyed()) {
-      if (view.webContents.isDevToolsOpened()) {
-        view.webContents.closeDevTools();
-      } else {
-        view.webContents.openDevTools({ mode: 'detach' });
-      }
+    if (isWebContentsAlive(view)) {
+      try {
+        if (view.webContents.isDevToolsOpened()) {
+          view.webContents.closeDevTools();
+        } else {
+          view.webContents.openDevTools({ mode: 'detach' });
+        }
+      } catch { /* ignore */ }
     }
   }
 
@@ -776,7 +817,7 @@ export class TabManager {
   private captureScrollPosition(tabId: string): void {
     const view = this.views.get(tabId);
     const record = this.tabs.get(tabId);
-    if (!view || !record || view.webContents.isDestroyed()) return;
+    if (!view || !record || !isWebContentsAlive(view)) return;
 
     view.webContents
       .executeJavaScript('[window.scrollX, window.scrollY]')
@@ -813,7 +854,15 @@ export class TabManager {
     const result: TabInfo[] = [];
     for (const [, record] of this.tabs) {
       const view = this.views.get(record.id);
-      const isAlive = view && !view.webContents.isDestroyed();
+      const isAlive = isWebContentsAlive(view);
+      let canGoBack = false;
+      let canGoForward = false;
+      if (isAlive && view?.webContents?.navigationHistory) {
+        try {
+          canGoBack = view.webContents.navigationHistory.canGoBack();
+          canGoForward = view.webContents.navigationHistory.canGoForward();
+        } catch { /* ignore */ }
+      }
       result.push({
         id: record.id,
         url: record.url,
@@ -821,8 +870,8 @@ export class TabManager {
         favicon: record.favicon,
         status: record.status,
         isLoading: record.isLoading,
-        canGoBack: isAlive ? view.webContents.navigationHistory.canGoBack() : false,
-        canGoForward: isAlive ? view.webContents.navigationHistory.canGoForward() : false,
+        canGoBack,
+        canGoForward,
         isPrivate: record.isPrivate ?? false,
       });
     }
@@ -848,8 +897,10 @@ export class TabManager {
   getActiveTabUrl(): string {
     if (!this.activeTabId) return '';
     const view = this.views.get(this.activeTabId);
-    if (view && !view.webContents.isDestroyed()) {
-      return view.webContents.getURL();
+    if (isWebContentsAlive(view)) {
+      try {
+        return view.webContents.getURL();
+      } catch { /* ignore */ }
     }
     return this.tabs.get(this.activeTabId)?.url ?? '';
   }

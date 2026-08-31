@@ -56,6 +56,23 @@ export function stripTrackingParams(urlString: string): string {
   try {
     const url = new URL(urlString);
 
+    // Never strip parameters on authentication, OAuth, or sign-in endpoints
+    const host = url.hostname.toLowerCase();
+    const pathname = url.pathname.toLowerCase();
+    if (
+      host.includes('accounts.google.com') ||
+      host.includes('auth0.com') ||
+      host.includes('clerk.dev') ||
+      host.includes('claude.ai') ||
+      pathname.includes('/oauth') ||
+      pathname.includes('/auth') ||
+      pathname.includes('/login') ||
+      pathname.includes('/signin') ||
+      pathname.includes('/gsi/')
+    ) {
+      return urlString;
+    }
+
     // Collect params to delete (can't mutate while iterating)
     const paramsToRemove: string[] = [];
     for (const key of url.searchParams.keys()) {
