@@ -98,7 +98,50 @@ const INJECTION_SCRIPT = `
       });
     } catch (e) {}
 
-    // 5. Clean YouTube Player Ads from window.ytInitialPlayerResponse
+    // 5. Anti-Fingerprinting Protections
+    try {
+      // Normalize hardwareConcurrency to common standard
+      Object.defineProperty(navigator, 'hardwareConcurrency', {
+        get: () => 4,
+        configurable: true,
+      });
+
+      // Mask Battery API
+      if ('getBattery' in navigator) {
+        (navigator as any).getBattery = () => Promise.reject(new Error('Battery API disabled for privacy'));
+      }
+
+      // WebGL Fingerprint Protection
+      var getParameter = WebGLRenderingContext.prototype.getParameter;
+      WebGLRenderingContext.prototype.getParameter = function(parameter) {
+        // UNMASKED_VENDOR_WEBGL
+        if (parameter === 37445) return 'Google Inc. (Intel)';
+        // UNMASKED_RENDERER_WEBGL
+        if (parameter === 37446) return 'ANGLE (Intel, Intel(R) UHD Graphics 630 Direct3D11 vs_5_0 ps_5_0, D3D11)';
+        return getParameter.apply(this, [parameter]);
+      };
+      if (typeof WebGL2RenderingContext !== 'undefined') {
+        var getParameter2 = WebGL2RenderingContext.prototype.getParameter;
+        WebGL2RenderingContext.prototype.getParameter = function(parameter) {
+          if (parameter === 37445) return 'Google Inc. (Intel)';
+          if (parameter === 37446) return 'ANGLE (Intel, Intel(R) UHD Graphics 630 Direct3D11 vs_5_0 ps_5_0, D3D11)';
+          return getParameter2.apply(this, [parameter]);
+        };
+      }
+
+      // Canvas micro-noise protection
+      var originalGetImageData = CanvasRenderingContext2D.prototype.getImageData;
+      CanvasRenderingContext2D.prototype.getImageData = function(sx, sy, sw, sh, settings) {
+        var imageData = originalGetImageData.apply(this, [sx, sy, sw, sh, settings]);
+        // Only apply micro-shift if width/height is large (indicative of fingerprinting, not small icons)
+        if (sw > 16 && sh > 16 && imageData.data.length > 64) {
+          imageData.data[0] = (imageData.data[0] ^ 1) & 0xff;
+        }
+        return imageData;
+      };
+    } catch (e) {}
+
+    // 6. Clean YouTube Player Ads from window.ytInitialPlayerResponse
     if (location.hostname.includes('youtube.com')) {
       var originalDefineProperty = Object.defineProperty;
       var cleanYtResponse = function(obj) {

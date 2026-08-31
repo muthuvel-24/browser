@@ -18,6 +18,8 @@ import VpnModal from './components/VpnModal';
 import FindBar from './components/FindBar';
 import ChromeNewTabPage from './components/ChromeNewTabPage';
 import WebPreviewCard from './components/WebPreviewCard';
+import BrowserMenu from './components/BrowserMenu';
+import SettingsPage from './components/SettingsPage';
 
 const App: React.FC = () => {
   const {
@@ -27,6 +29,7 @@ const App: React.FC = () => {
     adBlockStats,
     downloads,
     findMatchInfo,
+    settings,
     createTab,
     createPrivateTab,
     closeTab,
@@ -44,10 +47,14 @@ const App: React.FC = () => {
     zoomOut,
     zoomReset,
     toggleDevTools,
+    updateSetting,
+    clearBrowsingData,
   } = useIpc();
 
   const [showFindBar, setShowFindBar] = useState(false);
   const [showVpnModal, setShowVpnModal] = useState(false);
+  const [showMenu, setShowMenu] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
 
   // Find active tab
   const activeTab = tabs.find((t) => t.id === activeTabId);
@@ -59,12 +66,20 @@ const App: React.FC = () => {
   // Check if active tab is speeddial/newtab page
   const isSpeedDial = !activeTab || !activeTab.url || activeTab.url === 'speeddial' || activeTab.url === 'about:blank';
 
-  // Expand toolbar height when VPN modal or dropdown opens, restore to 110px on close
+  // Expand toolbar height when VPN modal, menu, or Settings opens, restore to 110px on close
   useEffect(() => {
     if (window.muthuAPI?.setToolbarHeight) {
-      window.muthuAPI.setToolbarHeight(showVpnModal ? 480 : 110);
+      if (showSettings) {
+        window.muthuAPI.setToolbarHeight(window.innerHeight || 800);
+      } else if (showVpnModal) {
+        window.muthuAPI.setToolbarHeight(480);
+      } else if (showMenu) {
+        window.muthuAPI.setToolbarHeight(360);
+      } else {
+        window.muthuAPI.setToolbarHeight(110);
+      }
     }
-  }, [showVpnModal]);
+  }, [showSettings, showVpnModal, showMenu]);
 
   // ─── Global Keyboard Shortcuts ───────────────────────────────
   useEffect(() => {
@@ -159,7 +174,17 @@ const App: React.FC = () => {
             onReload={reload}
             onStop={stopLoading}
             onHome={() => createTab('speeddial')}
-            onToggleVpnModal={() => setShowVpnModal((prev) => !prev)}
+            onToggleVpnModal={() => {
+              setShowMenu(false);
+              setShowVpnModal((prev) => !prev);
+            }}
+            onMenuClick={() => {
+              setShowVpnModal(false);
+              setShowMenu((prev) => !prev);
+            }}
+            onAdBlockClick={() => {
+              setShowSettings(true);
+            }}
             onFindClick={() => setShowFindBar((prev) => !prev)}
             onDevToolsClick={toggleDevTools}
           />
@@ -169,7 +194,33 @@ const App: React.FC = () => {
         <BookmarksBar onNavigate={navigateTo} />
       </div>
 
-      {/* ── 4. Main Viewport ──
+      {/* ── 4. Chrome Dropdown Menu (3-dot ⋮) ── */}
+      <BrowserMenu
+        isOpen={showMenu}
+        onClose={() => setShowMenu(false)}
+        onNewTab={() => {
+          createTab();
+          setShowMenu(false);
+        }}
+        onNewPrivateTab={() => {
+          createPrivateTab();
+          setShowMenu(false);
+        }}
+        onSettings={() => {
+          setShowMenu(false);
+          setShowSettings(true);
+        }}
+        onFindInPage={() => {
+          setShowMenu(false);
+          setShowFindBar(true);
+        }}
+        onZoomIn={zoomIn}
+        onZoomOut={zoomOut}
+        onZoomReset={zoomReset}
+        zoomLevel={settings.zoomLevel}
+      />
+
+      {/* ── 5. Main Viewport ──
           Electron: empty (WebContentsView paints below the 110px toolbar).
           Standalone Vite/Chrome: New Tab page or proxied iframe viewport. */}
       {isElectronShell ? null : isSpeedDial ? (
@@ -178,7 +229,7 @@ const App: React.FC = () => {
         <WebPreviewCard url={activeTab!.url} title={activeTab!.title} onNavigate={navigateTo} />
       )}
 
-      {/* ── 5. Find in Page Overlay ── */}
+      {/* ── 6. Find in Page Overlay ── */}
       {showFindBar && (
         <FindBar
           matchInfo={findMatchInfo}
@@ -190,13 +241,24 @@ const App: React.FC = () => {
         />
       )}
 
-      {/* ── 6. Chrome VPN Dropdown Control Panel Modal ── */}
+      {/* ── 7. Chrome VPN Dropdown Control Panel Modal ── */}
       {showVpnModal && vpnStatus && (
         <VpnModal
           status={vpnStatus}
           onEnable={vpnEnable}
           onDisable={vpnDisable}
           onClose={() => setShowVpnModal(false)}
+        />
+      )}
+
+      {/* ── 8. Full Personalize Settings Page ── */}
+      {showSettings && (
+        <SettingsPage
+          settings={settings}
+          onSettingChange={updateSetting}
+          onClearBrowsingData={clearBrowsingData}
+          onClose={() => setShowSettings(false)}
+          appVersion="1.0.0"
         />
       )}
     </div>

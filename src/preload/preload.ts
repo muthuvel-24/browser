@@ -156,6 +156,53 @@ const muthuAPI = {
     return ipcRenderer.invoke(IPC.MEMORY_RESTORE_TAB, tabId);
   },
 
+  // ─── Settings ───────────────────────────────────────────────
+
+  /** Get a single setting value. */
+  getSetting: (key: string): Promise<unknown> => {
+    if (typeof key !== 'string' || !key) return Promise.resolve(undefined);
+    return ipcRenderer.invoke(IPC.SETTINGS_GET, key);
+  },
+
+  /** Set a single setting. */
+  setSetting: (key: string, value: unknown): Promise<void> => {
+    if (typeof key !== 'string' || !key) return Promise.resolve();
+    return ipcRenderer.invoke(IPC.SETTINGS_SET, key, value);
+  },
+
+  /** Get all settings. */
+  getAllSettings: (): Promise<Record<string, unknown>> => {
+    return ipcRenderer.invoke(IPC.SETTINGS_GET_ALL);
+  },
+
+  /** Update multiple settings at once. */
+  setAllSettings: (settings: Record<string, unknown>): Promise<void> => {
+    if (typeof settings !== 'object' || settings === null) return Promise.resolve();
+    return ipcRenderer.invoke(IPC.SETTINGS_SET_ALL, settings);
+  },
+
+  /** Reset all settings to defaults. */
+  resetSettings: (): Promise<void> => {
+    return ipcRenderer.invoke(IPC.SETTINGS_RESET);
+  },
+
+  /** Clear browsing data. */
+  clearBrowsingData: (options: Record<string, boolean>): Promise<void> => {
+    if (typeof options !== 'object' || options === null) return Promise.resolve();
+    return ipcRenderer.invoke(IPC.CLEAR_BROWSING_DATA, options);
+  },
+
+  // ─── Settings Event Subscription ────────────────────────────
+
+  /** Subscribe to settings changes. */
+  onSettingsChanged: (callback: (settings: Record<string, unknown>) => void): (() => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, settings: Record<string, unknown>) => {
+      callback(settings);
+    };
+    ipcRenderer.on(IPC.SETTINGS_CHANGED, handler);
+    return () => ipcRenderer.removeListener(IPC.SETTINGS_CHANGED, handler);
+  },
+
   // ─── Event Subscriptions (Main → Renderer) ─────────────────
 
   /** Subscribe to tab list updates. */

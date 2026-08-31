@@ -52,6 +52,17 @@ export const IPC = {
   MEMORY_GET_STATS:  'memory:get-stats',
   MEMORY_RESTORE_TAB:'memory:restore-tab',
   MEMORY_STATS_UPDATED: 'memory:stats-updated', // main → renderer
+
+  // ─── Settings ──────────────────────────────────────────────────
+  SETTINGS_GET:          'settings:get',
+  SETTINGS_SET:          'settings:set',
+  SETTINGS_GET_ALL:      'settings:get-all',
+  SETTINGS_SET_ALL:      'settings:set-all',
+  SETTINGS_RESET:        'settings:reset',
+  SETTINGS_CHANGED:      'settings:changed',      // main → renderer
+
+  // ─── Browser Actions ──────────────────────────────────────────
+  CLEAR_BROWSING_DATA:   'browser:clear-data',
 } as const;
 
 /** Type-safe channel name type */

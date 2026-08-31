@@ -115,3 +115,15 @@ export interface FindMatchInfo {
   matches: number;
   finalUpdate: boolean;
 }
+
+// ─── Settings Re-exports ─────────────────────────────────────────
+export type {
+  BrowserSettings,
+  SearchEngine,
+  StartupBehavior,
+  ThemeMode,
+  FontSize,
+  ClearDataOptions,
+  DownloadWarning,
+} from './settings-types';
+

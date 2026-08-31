@@ -24,6 +24,8 @@ interface AddressBarProps {
   onStop: () => void;
   onHome: () => void;
   onToggleVpnModal: () => void;
+  onMenuClick?: () => void;
+  onAdBlockClick?: () => void;
   onFindClick?: () => void;
   onDevToolsClick?: () => void;
 }
@@ -58,6 +60,8 @@ const AddressBar: React.FC<AddressBarProps> = ({
   onStop,
   onHome,
   onToggleVpnModal,
+  onMenuClick,
+  onAdBlockClick,
   onFindClick,
   onDevToolsClick,
 }) => {
@@ -223,7 +227,7 @@ const AddressBar: React.FC<AddressBarProps> = ({
         <button
           className="url-action-btn"
           title={`Ad Blocker: ${adBlockStats?.totalBlocked ?? 0} ads & trackers blocked`}
-          onClick={() => alert(`Ad Blocker Active!\nBlocked Total: ${adBlockStats?.totalBlocked ?? 0}\nEngine: Ghostery AdBlocker`)}
+          onClick={onAdBlockClick}
         >
           🛡️
           {adBlockStats && adBlockStats.totalBlocked > 0 && (
@@ -271,7 +275,8 @@ const AddressBar: React.FC<AddressBarProps> = ({
         <button
           className="url-action-btn"
           title="Customize and control Google Chrome"
-          onClick={() => alert('Google Chrome Settings & Tools Menu')}
+          onClick={onMenuClick}
+          id="btn-browser-menu"
         >
           ⋮
         </button>

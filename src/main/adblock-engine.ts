@@ -128,12 +128,24 @@ export class AdBlockEngine {
     sessionBlocked: 0,
     perTab: {},
   };
+  private isEnabled: boolean = true;
+  private whitelist: Set<string> = new Set();
 
   /** Callback fired whenever stats update */
   public onStatsUpdated: ((stats: AdBlockStats) => void) | null = null;
 
   async initialize(): Promise<void> {
     console.log('[AdBlock] Native TypeScript Ad & Tracker Blocker initialized');
+  }
+
+  /** Set whether ad blocking is enabled */
+  setEnabled(enabled: boolean): void {
+    this.isEnabled = enabled;
+  }
+
+  /** Set whitelist domains */
+  setWhitelist(domains: string[]): void {
+    this.whitelist = new Set(domains.map((d) => d.toLowerCase().trim()));
   }
 
   /**
@@ -143,6 +155,11 @@ export class AdBlockEngine {
     targetSession.webRequest.onBeforeRequest(
       { urls: ['*://*/*'] },
       (details, callback) => {
+        if (!this.isEnabled) {
+          callback({});
+          return;
+        }
+
         const urlStr = details.url;
 
         // 1. NEVER block main frame navigations (user opened website)
@@ -160,6 +177,12 @@ export class AdBlockEngine {
         try {
           const parsed = new URL(urlStr);
           const host = parsed.hostname.toLowerCase();
+
+          // Check if domain is whitelisted
+          if (this.whitelist.has(host) || Array.from(this.whitelist).some((d) => host.endsWith('.' + d))) {
+            callback({});
+            return;
+          }
 
           const isAdHost = AD_DOMAINS.has(host) || Array.from(AD_DOMAINS).some((domain) => host.endsWith('.' + domain));
           const isAdPath = AD_PATTERNS.some((pattern) => pattern.test(parsed.pathname + parsed.search));

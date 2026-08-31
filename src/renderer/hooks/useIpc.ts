@@ -8,7 +8,45 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
-import type { TabInfo, VpnStatus, AdBlockStats, MemoryStats, DownloadItemInfo, FindMatchInfo, VpnRegion } from '../../main/types';
+import type {
+  TabInfo,
+  VpnStatus,
+  AdBlockStats,
+  MemoryStats,
+  DownloadItemInfo,
+  FindMatchInfo,
+  VpnRegion,
+  BrowserSettings,
+  ClearDataOptions,
+} from '../../main/types';
+
+/** Default settings fallback */
+const DEFAULT_SETTINGS_STATE: BrowserSettings = {
+  searchEngine: 'google',
+  homepage: 'speeddial',
+  startupBehavior: 'newTab',
+  theme: 'dark',
+  fontSize: 'medium',
+  zoomLevel: 100,
+  httpsOnlyMode: true,
+  safeBrowsing: true,
+  blockThirdPartyCookies: false,
+  doNotTrack: true,
+  clearCookiesOnExit: false,
+  clearHistoryOnExit: false,
+  clearCacheOnExit: false,
+  fingerprintProtection: true,
+  adBlockerEnabled: true,
+  adBlockerWhitelist: [],
+  downloadPath: '',
+  askBeforeDownload: true,
+  warnDangerousDownloads: true,
+  blockPopups: true,
+  blockAutoplay: false,
+  enableJavascript: true,
+  vpnAutoConnect: false,
+  vpnDefaultRegion: 'US',
+};
 
 /** Default initial tab for web standalone mode — just one New Tab */
 const DEFAULT_INITIAL_TABS: TabInfo[] = [
@@ -66,6 +104,7 @@ export interface IpcState {
   memoryStats: MemoryStats;
   downloads: DownloadItemInfo[];
   findMatchInfo: FindMatchInfo | null;
+  settings: BrowserSettings;
 }
 
 export function useIpc(): IpcState & {
@@ -87,6 +126,10 @@ export function useIpc(): IpcState & {
   zoomOut: () => void;
   zoomReset: () => void;
   toggleDevTools: () => void;
+  updateSetting: (key: string, value: unknown) => void;
+  updateAllSettings: (partial: Partial<BrowserSettings>) => void;
+  resetSettings: () => void;
+  clearBrowsingData: (options: ClearDataOptions) => void;
 } {
   const [tabs, setTabs] = useState<TabInfo[]>(DEFAULT_INITIAL_TABS);
   const [activeTabId, setActiveTabId] = useState<string | null>('tab-google');
@@ -95,6 +138,7 @@ export function useIpc(): IpcState & {
   const [memoryStats, setMemoryStats] = useState<MemoryStats>(DEFAULT_MEMORY_STATS);
   const [downloads, setDownloads] = useState<DownloadItemInfo[]>([]);
   const [findMatchInfo, setFindMatchInfo] = useState<FindMatchInfo | null>(null);
+  const [settings, setSettings] = useState<BrowserSettings>(DEFAULT_SETTINGS_STATE);
 
   const getApi = () => typeof window !== 'undefined' ? window.muthuAPI : undefined;
 
@@ -129,6 +173,10 @@ export function useIpc(): IpcState & {
       setFindMatchInfo(info);
     });
 
+    const unsubSettings = api.onSettingsChanged?.((newSettings) => {
+      setSettings((prev) => ({ ...prev, ...(newSettings as Partial<BrowserSettings>) }));
+    });
+
     api.getTabList().then((initialTabs) => {
       if (initialTabs && initialTabs.length > 0) {
         setTabs(initialTabs);
@@ -149,6 +197,12 @@ export function useIpc(): IpcState & {
       if (stats) setMemoryStats(stats);
     }).catch((err) => console.warn('[useIpc] getMemoryStats error:', err));
 
+    api.getAllSettings?.().then((all) => {
+      if (all && Object.keys(all).length > 0) {
+        setSettings((prev) => ({ ...prev, ...(all as Partial<BrowserSettings>) }));
+      }
+    }).catch((err) => console.warn('[useIpc] getAllSettings error:', err));
+
     return () => {
       unsubTabs();
       unsubVpn();
@@ -156,6 +210,7 @@ export function useIpc(): IpcState & {
       unsubMemory();
       unsubDownloads?.();
       unsubFind?.();
+      unsubSettings?.();
     };
   }, []);
 
@@ -353,6 +408,37 @@ export function useIpc(): IpcState & {
     getApi()?.toggleDevTools().catch((err) => console.warn('[useIpc] toggleDevTools error:', err));
   }, []);
 
+  const updateSetting = useCallback((key: string, value: unknown) => {
+    const api = getApi();
+    if (api) {
+      api.setSetting(key, value).catch((err) => console.warn('[useIpc] setSetting error:', err));
+    }
+    setSettings((prev) => ({ ...prev, [key]: value }));
+  }, []);
+
+  const updateAllSettings = useCallback((partial: Partial<BrowserSettings>) => {
+    const api = getApi();
+    if (api) {
+      api.setAllSettings(partial as Record<string, unknown>).catch((err) => console.warn('[useIpc] setAllSettings error:', err));
+    }
+    setSettings((prev) => ({ ...prev, ...partial }));
+  }, []);
+
+  const resetSettings = useCallback(() => {
+    const api = getApi();
+    if (api) {
+      api.resetSettings().catch((err) => console.warn('[useIpc] resetSettings error:', err));
+    }
+    setSettings(DEFAULT_SETTINGS_STATE);
+  }, []);
+
+  const clearBrowsingData = useCallback((options: ClearDataOptions) => {
+    const api = getApi();
+    if (api) {
+      api.clearBrowsingData(options as unknown as Record<string, boolean>).catch((err) => console.warn('[useIpc] clearBrowsingData error:', err));
+    }
+  }, []);
+
   return {
     tabs,
     activeTabId,
@@ -361,6 +447,7 @@ export function useIpc(): IpcState & {
     memoryStats,
     downloads,
     findMatchInfo,
+    settings,
     createTab,
     createPrivateTab,
     closeTab,
@@ -379,5 +466,9 @@ export function useIpc(): IpcState & {
     zoomOut,
     zoomReset,
     toggleDevTools,
+    updateSetting,
+    updateAllSettings,
+    resetSettings,
+    clearBrowsingData,
   };
 }

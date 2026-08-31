@@ -1,0 +1,312 @@
+/* d:\browser project\src\renderer\components\SettingsPage.css */
+.settingsContainer {
+  display: flex;
+  height: 100vh;
+  width: 100vw;
+  background-color: #202124;
+  color: #e8eaed;
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  overflow: hidden;
+  position: relative;
+}
+
+.closeButton {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  background: transparent;
+  border: none;
+  color: #9aa0a6;
+  font-size: 24px;
+  cursor: pointer;
+  z-index: 10;
+}
+
+.closeButton:hover {
+  color: #e8eaed;
+}
+
+.sidebar {
+  width: 240px;
+  background-color: #292a2d;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  padding-top: 16px;
+  border-right: 1px solid #3c4043;
+}
+
+.sidebarItem {
+  padding: 12px 20px;
+  cursor: pointer;
+  color: #9aa0a6;
+  transition: background-color 0.2s, color 0.2s;
+  display: flex;
+  align-items: center;
+}
+
+.sidebarItem:hover {
+  background-color: #35363a;
+  color: #e8eaed;
+}
+
+.sidebarItem.active {
+  color: #8ab4f8;
+  background-color: #35363a;
+  border-left: 4px solid #8ab4f8;
+  padding-left: 16px;
+}
+
+.content {
+  flex-grow: 1;
+  overflow-y: auto;
+  scroll-behavior: smooth;
+  display: flex;
+  justify-content: center;
+}
+
+.contentInner {
+  width: 100%;
+  max-width: 720px;
+  padding: 32px 40px;
+  display: flex;
+  flex-direction: column;
+  gap: 48px;
+}
+
+.sectionTitle {
+  color: #e8eaed;
+  font-size: 1.3rem;
+  margin-bottom: 24px;
+  font-weight: 500;
+}
+
+.settingRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 0;
+  border-bottom: 1px solid #3c4043;
+}
+
+.settingLabel {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.settingName {
+  font-size: 1rem;
+}
+
+.settingDesc {
+  font-size: 0.85rem;
+  color: #9aa0a6;
+}
+
+/* Toggle Switch */
+.toggle {
+  position: relative;
+  display: inline-block;
+  width: 40px;
+  height: 20px;
+}
+
+.toggle input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: #5f6368;
+  transition: .4s;
+  border-radius: 20px;
+}
+
+.slider:before {
+  position: absolute;
+  content: "";
+  height: 16px;
+  width: 16px;
+  left: 2px;
+  bottom: 2px;
+  background-color: #e8eaed;
+  transition: .4s;
+  border-radius: 50%;
+}
+
+input:checked + .slider {
+  background-color: #8ab4f8;
+}
+
+input:checked + .slider:before {
+  transform: translateX(20px);
+  background-color: #202124;
+}
+
+/* Inputs & Selects */
+.select, .textInput, .numberInput {
+  background-color: #35363a;
+  color: #e8eaed;
+  border: 1px solid #3c4043;
+  border-radius: 4px;
+  padding: 6px 12px;
+  font-family: inherit;
+  font-size: 0.9rem;
+}
+
+.select:focus, .textInput:focus, .numberInput:focus {
+  outline: none;
+  border-color: #8ab4f8;
+}
+
+/* Buttons */
+.button {
+  background-color: #8ab4f8;
+  color: #202124;
+  border: none;
+  border-radius: 4px;
+  padding: 8px 16px;
+  font-size: 0.9rem;
+  cursor: pointer;
+  font-weight: 500;
+  font-family: inherit;
+  transition: opacity 0.2s;
+}
+
+.button:hover {
+  opacity: 0.9;
+}
+
+.button.danger {
+  background-color: #f28b82;
+  color: #202124;
+}
+
+/* Whitelist */
+.whitelistManager {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: 100%;
+}
+
+.addWhitelistRow {
+  display: flex;
+  gap: 8px;
+}
+
+.addWhitelistRow .textInput {
+  flex-grow: 1;
+}
+
+.whitelistItems {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.whitelistItem {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background-color: #35363a;
+  padding: 6px 12px;
+  border-radius: 16px;
+  font-size: 0.85rem;
+}
+
+.removeWhitelistBtn {
+  background: transparent;
+  border: none;
+  color: #9aa0a6;
+  cursor: pointer;
+  font-size: 1.1rem;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.removeWhitelistBtn:hover {
+  color: #f28b82;
+}
+
+/* Modal */
+.modalOverlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.6);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 100;
+}
+
+.modalCard {
+  background-color: #292a2d;
+  padding: 24px;
+  border-radius: 8px;
+  width: 400px;
+  max-width: 90vw;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+}
+
+.modalTitle {
+  font-size: 1.2rem;
+  margin-bottom: 24px;
+  color: #e8eaed;
+}
+
+.modalContent {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-bottom: 32px;
+}
+
+.checkboxRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  cursor: pointer;
+}
+
+.modalActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+.modalBtn {
+  background: transparent;
+  border: 1px solid #3c4043;
+  color: #8ab4f8;
+  padding: 8px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.modalBtn:hover {
+  background-color: rgba(138, 180, 248, 0.08);
+}
+
+.modalBtn.primary {
+  background-color: #8ab4f8;
+  color: #202124;
+  border: none;
+}
+.modalBtn.primary:hover {
+  background-color: #8ab4f8;
+  opacity: 0.9;
+}

@@ -17,9 +17,19 @@ import { TabManager } from './tab-manager';
 import { MemoryManager } from './memory-manager';
 import { AdBlockEngine } from './adblock-engine';
 import { ProxyManager } from './proxy-manager';
+import { SettingsStore } from './settings-store';
 import { normalizeUrl } from './url-utils';
 import { IPC } from '../shared/ipc-channels';
 import type { VpnRegion } from './types';
+import type { BrowserSettings, ClearDataOptions } from './settings-types';
+import {
+  setupCertificateHandling,
+  sanitizeFilename,
+  isDangerousExtension,
+  setupToolbarSecurityHeaders,
+  setupTabSecurityHeaders,
+  isSafeNavigation,
+} from './security-manager';
 
 // ─── Chromium Flags ─────────────────────────────────────────────
 app.commandLine.appendSwitch('js-flags', '--max-old-space-size=256');
@@ -41,6 +51,7 @@ let tabManager: TabManager;
 let memoryManager: MemoryManager;
 let adBlockEngine: AdBlockEngine;
 let proxyManager: ProxyManager;
+let settingsStore: SettingsStore;
 const configuredTabSessions = new WeakSet<Session>();
 
 // ─── Chrome-compatible User-Agent & Client Hints ────────────────
@@ -60,6 +71,11 @@ function configureChromeHeaders(targetSession: Session): void {
     requestHeaders['sec-ch-ua-arch'] = '"x86"';
     requestHeaders['sec-ch-ua-bitness'] = '"64"';
     requestHeaders['sec-ch-ua-full-version-list'] = '"Google Chrome";v="131.0.6778.205", "Chromium";v="131.0.6778.205", "Not_A Brand";v="24.0.0.0"';
+
+    if (settingsStore?.get('doNotTrack')) {
+      requestHeaders['DNT'] = '1';
+    }
+
     callback({ requestHeaders });
   });
 }
@@ -90,12 +106,15 @@ function shouldOpenInMuthu(url: string): boolean {
   if (url.startsWith('devtools://')) return false;
   if (url.startsWith('data:')) return false;
   if (url.startsWith('blob:')) return false;
-  return true;
+  return isSafeNavigation(url);
 }
 
 // ─── Window Creation ────────────────────────────────────────────
 async function createMainWindow(): Promise<void> {
   Menu.setApplicationMenu(null);
+
+  // Initialize Settings Store
+  settingsStore = new SettingsStore();
 
   mainWindow = new BaseWindow({
     width: 1400,
@@ -119,6 +138,7 @@ async function createMainWindow(): Promise<void> {
   const contentBounds = mainWindow.getContentBounds();
   toolbarView.setBounds({ x: 0, y: 0, width: contentBounds.width, height: 110 });
   toolbarView.setBackgroundColor('#0f0f1a');
+  setupToolbarSecurityHeaders(toolbarView.webContents.session);
   mainWindow.contentView.addChildView(toolbarView);
 
   if (MAIN_WINDOW_VITE_DEV_SERVER_URL) {
@@ -138,9 +158,11 @@ async function createMainWindow(): Promise<void> {
   configureChromeHeaders(tabSession);
   configureChromeHeaders(session.defaultSession);
 
-  // Enforce secure permission handlers
+  // Enforce secure permission handlers & security headers
   setupSecurePermissions(tabSession);
   setupSecurePermissions(session.defaultSession);
+  setupTabSecurityHeaders(tabSession);
+  setupTabSecurityHeaders(session.defaultSession);
 
   // ─── Proxy Manager ───────────────────────────────────────────
   proxyManager = new ProxyManager();
@@ -152,6 +174,8 @@ async function createMainWindow(): Promise<void> {
 
   // ─── Ad Blocker ──────────────────────────────────────────────
   adBlockEngine = new AdBlockEngine();
+  adBlockEngine.setEnabled(settingsStore.get('adBlockerEnabled'));
+  adBlockEngine.setWhitelist(settingsStore.get('adBlockerWhitelist'));
   adBlockEngine.onStatsUpdated = (stats) => {
     if (toolbarView && !toolbarView.webContents.isDestroyed()) {
       toolbarView.webContents.send(IPC.ADBLOCK_STATS_UPDATED, stats);
@@ -162,6 +186,20 @@ async function createMainWindow(): Promise<void> {
     adBlockEngine.enableOnSession(tabSession);
   } catch (err) {
     console.error('[Main] AdBlock init failed (non-fatal):', err);
+  }
+
+  // Hook Settings changes
+  settingsStore.onSettingsChanged = (settings) => {
+    if (toolbarView && !toolbarView.webContents.isDestroyed()) {
+      toolbarView.webContents.send(IPC.SETTINGS_CHANGED, settings);
+    }
+    adBlockEngine.setEnabled(settings.adBlockerEnabled);
+    adBlockEngine.setWhitelist(settings.adBlockerWhitelist);
+  };
+
+  // Auto-connect VPN if setting enabled
+  if (settingsStore.get('vpnAutoConnect')) {
+    void proxyManager.enable(settingsStore.get('vpnDefaultRegion')).catch(() => {});
   }
 
   const configureTabSession = (targetSession: Session) => {
@@ -243,10 +281,29 @@ const downloads: DownloadItemInfo[] = [];
 function setupDownloadListener(): void {
   const tabSession = session.fromPartition('persist:muthu');
   tabSession.on('will-download', (_event, item) => {
+    const rawFilename = item.getFilename();
+    const safeFilename = sanitizeFilename(rawFilename);
+    const isDangerous = isDangerousExtension(rawFilename);
+
+    if (isDangerous && settingsStore?.get('warnDangerousDownloads')) {
+      console.warn(`[Security] Dangerous download detected: ${safeFilename}`);
+    }
+
+    const defaultPath = settingsStore?.get('downloadPath');
+    const askBefore = settingsStore?.get('askBeforeDownload');
+
+    if (defaultPath && !askBefore) {
+      try {
+        item.setSavePath(path.join(defaultPath, safeFilename));
+      } catch {
+        // Fallback to default save path
+      }
+    }
+
     const downloadId = String(Date.now());
     const info: DownloadItemInfo = {
       id: downloadId,
-      filename: item.getFilename(),
+      filename: safeFilename,
       savePath: item.getSavePath(),
       receivedBytes: 0,
       totalBytes: item.getTotalBytes(),
@@ -272,6 +329,25 @@ function setupDownloadListener(): void {
 function broadcastDownloads(): void {
   if (toolbarView && !toolbarView.webContents.isDestroyed()) {
     toolbarView.webContents.send(IPC.DOWNLOAD_UPDATED, downloads);
+  }
+}
+
+async function handleClearBrowsingData(options: ClearDataOptions): Promise<void> {
+  const tabSession = session.fromPartition('persist:muthu');
+  const storagesToClear: ('cookies' | 'localstorage' | 'indexdb' | 'serviceworkers' | 'cachestorage')[] = [];
+  if (options.cookies) storagesToClear.push('cookies');
+  if (options.localStorage) storagesToClear.push('localstorage');
+  if (options.indexedDB) storagesToClear.push('indexdb');
+  if (options.serviceWorkers) storagesToClear.push('serviceworkers');
+  if (options.cache) storagesToClear.push('cachestorage');
+
+  if (storagesToClear.length > 0) {
+    await tabSession.clearStorageData({ storages: storagesToClear });
+  }
+  if (options.cache) {
+    await tabSession.clearCache();
+    await tabSession.clearHostResolverCache();
+    await tabSession.clearAuthCache();
   }
 }
 
@@ -386,6 +462,31 @@ function registerIpcHandlers(): void {
   ipcMain.handle(IPC.MEMORY_RESTORE_TAB, (_event, tabId: string) => {
     tabManager?.restoreTab(tabId);
   });
+
+  // ─── Settings IPC ───────────────────────────────────────────
+  ipcMain.handle(IPC.SETTINGS_GET, (_event, key: keyof BrowserSettings) => {
+    return settingsStore?.get(key);
+  });
+
+  ipcMain.handle(IPC.SETTINGS_SET, (_event, key: keyof BrowserSettings, value: unknown) => {
+    settingsStore?.set(key, value as never);
+  });
+
+  ipcMain.handle(IPC.SETTINGS_GET_ALL, () => {
+    return settingsStore?.getAll() ?? {};
+  });
+
+  ipcMain.handle(IPC.SETTINGS_SET_ALL, (_event, partial: Partial<BrowserSettings>) => {
+    settingsStore?.setAll(partial);
+  });
+
+  ipcMain.handle(IPC.SETTINGS_RESET, () => {
+    settingsStore?.reset();
+  });
+
+  ipcMain.handle(IPC.CLEAR_BROWSING_DATA, async (_event, options: ClearDataOptions) => {
+    await handleClearBrowsingData(options);
+  });
 }
 
 // ─── Global User-Agent Fallback ────────────────────────────────
@@ -393,6 +494,7 @@ app.userAgentFallback = CHROME_UA;
 
 // ─── App Lifecycle ──────────────────────────────────────────────
 app.whenReady().then(async () => {
+  setupCertificateHandling();
   registerIpcHandlers();
   registerWindowControls();
   setupDownloadListener();
@@ -421,11 +523,17 @@ app.whenReady().then(async () => {
       return { action: 'deny' };
     });
 
+    // Prevent unauthorized <webview> tag creation
+    contents.on('will-attach-webview', (event) => {
+      event.preventDefault();
+      console.warn('[Security] Prevented unauthorized <webview> attachment');
+    });
+
     // Intercept navigation within sub-frames that try to open external URLs
     contents.on('will-navigate', (event, url) => {
       // Block navigation away from devtools or internal pages that somehow
       // escaped to an external browser; let normal page navigation proceed
-      if (url.startsWith('javascript:')) {
+      if (url.startsWith('javascript:') || url.startsWith('vbscript:')) {
         event.preventDefault();
       }
     });
@@ -445,6 +553,22 @@ app.whenReady().then(async () => {
   app.on('activate', () => {
     if (!mainWindow) createMainWindow();
   });
+});
+
+app.on('before-quit', async () => {
+  if (settingsStore) {
+    const clearCookies = settingsStore.get('clearCookiesOnExit');
+    const clearCache = settingsStore.get('clearCacheOnExit');
+    if (clearCookies || clearCache) {
+      await handleClearBrowsingData({
+        cookies: clearCookies,
+        cache: clearCache,
+        localStorage: false,
+        indexedDB: false,
+        serviceWorkers: false,
+      });
+    }
+  }
 });
 
 app.on('window-all-closed', () => {

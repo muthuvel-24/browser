@@ -9,6 +9,7 @@
  */
 
 import { isAllowedScheme, normalizeUrl, stripTrackingParams } from './url-utils.js';
+import { sanitizeFilename, isDangerousExtension, isHomographDomain, isSafeNavigation } from './security-manager.js';
 
 function runSecurityTests(): void {
   let passed = 0;
@@ -46,6 +47,26 @@ function runSecurityTests(): void {
   assert(!cleanedUrl.includes('utm_source'), 'Strip utm_source tracking parameter');
   assert(!cleanedUrl.includes('fbclid'), 'Strip fbclid tracking parameter');
   assert(cleanedUrl.includes('keep=true'), 'Preserve functional application parameters');
+
+  // Test 4: Download Filename Sanitization & Path Traversal Prevention
+  assert(sanitizeFilename('../../evil.exe') === 'evil.exe', 'Prevent directory traversal in filename');
+  assert(sanitizeFilename('file<bad>name?.pdf') === 'file_bad_name_.pdf', 'Sanitize invalid characters in filename');
+  assert(sanitizeFilename('   ') === 'download', 'Handle empty or whitespace-only filename');
+
+  // Test 5: Dangerous File Extension Detection
+  assert(isDangerousExtension('malware.exe'), 'Detect .exe as dangerous extension');
+  assert(isDangerousExtension('script.bat'), 'Detect .bat as dangerous extension');
+  assert(isDangerousExtension('payload.ps1'), 'Detect .ps1 as dangerous extension');
+  assert(!isDangerousExtension('document.pdf'), 'Allow safe .pdf extension');
+  assert(!isDangerousExtension('photo.jpg'), 'Allow safe .jpg extension');
+
+  // Test 6: IDN Homograph Phishing Detection
+  assert(isHomographDomain('google.com') === false, 'Safe ASCII domain detected');
+  assert(isHomographDomain('g\u043E\u043Egle.com') === true, 'Detect Cyrillic homograph spoofing attempt');
+
+  // Test 7: Navigation Security
+  assert(isSafeNavigation('https://bank.com') === true, 'Allow safe HTTPS navigation');
+  assert(isSafeNavigation('javascript:evil()') === false, 'Block dangerous navigation scheme');
 
   console.log(`\n📊 Security Verification Summary: ${passed} Passed, ${failed} Failed.`);
   if (failed > 0) {
