@@ -18,7 +18,7 @@ import { randomUUID } from 'node:crypto';
 import path from 'path';
 import type { TabRecord, TabInfo, TabStatus, FindMatchInfo } from './types';
 import { getSpeedDialHtml } from './speeddial-html';
-import { stripTrackingParams } from './url-utils';
+import { stripTrackingParams, isAuthOrPopup } from './url-utils';
 import { IPC } from '../shared/ipc-channels';
 
 /** Height in pixels reserved for the toolbar UI at the top (Tab strip + Omnibox + BookmarksBar) */
@@ -722,12 +722,35 @@ export class TabManager {
     });
 
     // ── Intercept ALL new window attempts ──────────────────────
-    // This catches window.open(), target="_blank", OAuth popups, etc.
-    // EVERYTHING opens as a new tab inside Muthu Browser.
-    wc.setWindowOpenHandler(({ url }) => {
+    // Preserves window.opener and postMessage for OAuth / Auth popups,
+    // and converts regular links into new tabs inside Muthu Browser.
+    wc.setWindowOpenHandler(({ url, features }) => {
       if (!url || url.startsWith('devtools://') || url.startsWith('data:') || url.startsWith('blob:')) {
         return { action: 'allow' };
       }
+
+      if (isAuthOrPopup(url, features)) {
+        console.log(`[Tabs] Allowing OAuth / Auth popup window: ${url}`);
+        return {
+          action: 'allow',
+          overrideBrowserWindowOptions: {
+            width: 550,
+            height: 680,
+            minWidth: 380,
+            minHeight: 450,
+            autoHideMenuBar: true,
+            backgroundColor: '#202124',
+            webPreferences: {
+              sandbox: true,
+              contextIsolation: true,
+              nodeIntegration: false,
+              preload: path.join(__dirname, 'tab-preload.js'),
+              partition: 'persist:muthu',
+            },
+          },
+        };
+      }
+
       console.log(`[Tabs] Intercepting new-window request → new tab: ${url}`);
       setImmediate(() => this.createTab(url));
       return { action: 'deny' };

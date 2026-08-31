@@ -93,6 +93,42 @@ export function stripTrackingParams(urlString: string): string {
   }
 }
 
+/**
+ * Detects if a requested new window URL is an OAuth, Single Sign-On (SSO),
+ * or popup authentication flow that requires preserving window.opener.
+ */
+export function isAuthOrPopup(url: string, features?: string): boolean {
+  if (!url) return false;
+  const lowerUrl = url.toLowerCase();
+
+  // 1. Explicit window features (e.g. width=500, height=600) indicate a popup dialog
+  if (features && (features.includes('width=') || features.includes('height='))) {
+    return true;
+  }
+
+  // 2. Known Auth, OAuth, and Identity Providers
+  if (
+    lowerUrl.includes('accounts.google.com') ||
+    lowerUrl.includes('appleid.apple.com') ||
+    lowerUrl.includes('login.microsoftonline.com') ||
+    lowerUrl.includes('github.com/login') ||
+    lowerUrl.includes('auth0.com') ||
+    lowerUrl.includes('clerk.dev') ||
+    lowerUrl.includes('facebook.com/v') ||
+    lowerUrl.includes('twitter.com/i/oauth2') ||
+    lowerUrl.includes('x.com/i/oauth2') ||
+    lowerUrl.includes('/oauth') ||
+    lowerUrl.includes('/auth') ||
+    lowerUrl.includes('/signin') ||
+    lowerUrl.includes('/login') ||
+    lowerUrl.includes('/gsi/')
+  ) {
+    return true;
+  }
+
+  return false;
+}
+
 // ─── URL Normalization & Brand Shortcuts ────────────────────────
 
 /** Pattern to detect if input looks like a URL with domain extension */

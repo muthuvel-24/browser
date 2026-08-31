@@ -18,7 +18,7 @@ import { MemoryManager } from './memory-manager';
 import { AdBlockEngine } from './adblock-engine';
 import { ProxyManager } from './proxy-manager';
 import { SettingsStore } from './settings-store';
-import { normalizeUrl } from './url-utils';
+import { normalizeUrl, isAuthOrPopup } from './url-utils';
 import { IPC } from '../shared/ipc-channels';
 import type { VpnRegion } from './types';
 import type { BrowserSettings, ClearDataOptions } from './settings-types';
@@ -513,8 +513,31 @@ app.whenReady().then(async () => {
   // ════════════════════════════════════════════════════════════════
   app.on('web-contents-created', (_event, contents) => {
     // Intercept window.open / target=_blank / popups
-    contents.setWindowOpenHandler(({ url }) => {
+    contents.setWindowOpenHandler(({ url, features }) => {
       if (!shouldOpenInMuthu(url)) return { action: 'allow' };
+
+      // Allow OAuth & Auth popups to preserve window.opener and postMessage
+      if (isAuthOrPopup(url, features)) {
+        console.log(`[Muthu] Allowing OAuth / Auth popup window: ${url}`);
+        return {
+          action: 'allow',
+          overrideBrowserWindowOptions: {
+            width: 550,
+            height: 680,
+            minWidth: 380,
+            minHeight: 450,
+            autoHideMenuBar: true,
+            backgroundColor: '#202124',
+            webPreferences: {
+              sandbox: true,
+              contextIsolation: true,
+              nodeIntegration: false,
+              preload: path.join(__dirname, 'tab-preload.js'),
+              partition: 'persist:muthu',
+            },
+          },
+        };
+      }
 
       console.log(`[Muthu] Intercepted new-window → tab: ${url}`);
       setImmediate(() => {
