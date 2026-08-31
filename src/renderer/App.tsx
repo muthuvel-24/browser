@@ -152,6 +152,7 @@ const App: React.FC = () => {
             isPrivate={activeTab?.isPrivate}
             adBlockStats={adBlockStats}
             vpnStatus={vpnStatus}
+            downloads={downloads}
             onNavigate={navigateTo}
             onBack={goBack}
             onForward={goForward}

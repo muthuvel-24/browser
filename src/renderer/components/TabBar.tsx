@@ -44,20 +44,16 @@ const TabBar: React.FC<TabBarProps> = ({
 }) => {
 
   const handleMinimize = () => {
-    if (window.muthuAPI) {
-      (window.muthuAPI as unknown as { windowMinimize?: () => void }).windowMinimize?.();
-    }
+    window.muthuAPI?.windowMinimize?.();
   };
 
   const handleMaximize = () => {
-    if (window.muthuAPI) {
-      (window.muthuAPI as unknown as { windowMaximize?: () => void }).windowMaximize?.();
-    }
+    window.muthuAPI?.windowMaximize?.();
   };
 
   const handleClose = () => {
-    if (window.muthuAPI) {
-      (window.muthuAPI as unknown as { windowClose?: () => void }).windowClose?.();
+    if (window.muthuAPI?.windowClose) {
+      window.muthuAPI.windowClose();
     } else {
       window.close();
     }

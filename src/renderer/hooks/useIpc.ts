@@ -305,10 +305,10 @@ export function useIpc(): IpcState & {
       api.vpnEnable(region as VpnRegion).then((newStatus) => {
         if (newStatus) setVpnStatus(newStatus);
       }).catch(() => {
-        setVpnStatus({ enabled: true, region: region as VpnRegion, state: 'connected', endpoint: '198.51.100.42 (Encrypted SOCKS5)' });
+        setVpnStatus({ enabled: false, region: region as VpnRegion, state: 'error', endpoint: 'Not configured', message: 'VPN setup failed.' });
       });
     } else {
-      setVpnStatus({ enabled: true, region: region as VpnRegion, state: 'connected', endpoint: '198.51.100.42 (Encrypted SOCKS5)' });
+      setVpnStatus({ enabled: false, region: region as VpnRegion, state: 'error', endpoint: 'Not available in browser preview.' });
     }
   }, []);
 

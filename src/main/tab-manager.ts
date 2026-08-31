@@ -56,7 +56,10 @@ export class TabManager {
   /** Reference to the toolbar WebContentsView (for z-order management) */
   private toolbarView: WebContentsView | null = null;
 
-  constructor(window: BaseWindow) {
+  constructor(
+    window: BaseWindow,
+    private readonly configureSession?: (targetSession: Electron.Session) => void
+  ) {
     this.window = window;
 
     // Recalculate bounds when window is resized
@@ -79,7 +82,9 @@ export class TabManager {
   createTab(url?: string, isPrivate = false): string {
     const tabId = generateTabId();
     const targetUrl = url ?? NEW_TAB_URL;
-    const partitionName = isPrivate ? `incognito:${tabId}` : 'persist:muthu';
+    // A non-persistent partition gives every private tab the same isolated
+    // session during this app run and deletes it when the final private tab closes.
+    const partitionName = isPrivate ? 'muthu-incognito' : 'persist:muthu';
 
     // Create a new WebContentsView with sandboxed, isolated web preferences and tab preload
     const view = new WebContentsView({
@@ -97,6 +102,7 @@ export class TabManager {
     // Set Chrome User-Agent on session and webContents
     const tabSession = session.fromPartition(partitionName);
     tabSession.setUserAgent(CHROME_UA);
+    this.configureSession?.(tabSession);
     view.webContents.setUserAgent(CHROME_UA);
 
     // Create the tab record
@@ -211,6 +217,7 @@ export class TabManager {
    * Close a tab and destroy its WebContents.
    */
   closeTab(tabId: string): void {
+    const closingRecord = this.tabs.get(tabId);
     const view = this.views.get(tabId);
 
     // Remove view from window
@@ -227,6 +234,11 @@ export class TabManager {
 
     this.views.delete(tabId);
     this.tabs.delete(tabId);
+
+    // Clear the in-memory private profile as soon as its last tab is closed.
+    if (closingRecord?.isPrivate && !Array.from(this.tabs.values()).some((tab) => tab.isPrivate)) {
+      void session.fromPartition('muthu-incognito').clearStorageData().catch(() => {});
+    }
 
     // If we closed the active tab, switch to another
     if (this.activeTabId === tabId) {
@@ -415,7 +427,7 @@ export class TabManager {
       }
     }
 
-    const partitionName = record.isPrivate ? `incognito:${tabId}` : 'persist:muthu';
+    const partitionName = record.isPrivate ? 'muthu-incognito' : 'persist:muthu';
     // Create fresh WebContentsView
     const view = new WebContentsView({
       webPreferences: {
@@ -430,6 +442,7 @@ export class TabManager {
     });
 
     view.webContents.setUserAgent(CHROME_UA);
+    this.configureSession?.(session.fromPartition(partitionName));
 
     this.views.set(tabId, view);
 

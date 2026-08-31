@@ -43,7 +43,7 @@ const VpnModal: React.FC<VpnModalProps> = ({
             <span>🛡️ Chrome VPN</span>
           </div>
           <span className={`vpn-status-badge ${status.enabled ? 'vpn-status-badge--connected' : 'vpn-status-badge--disconnected'}`}>
-            {status.enabled ? 'PROTECTED' : 'DISCONNECTED'}
+            {status.enabled ? 'PROTECTED' : status.state === 'error' ? 'SETUP REQUIRED' : 'DISCONNECTED'}
           </span>
         </div>
 
@@ -85,14 +85,15 @@ const VpnModal: React.FC<VpnModalProps> = ({
         {/* Metrics Grid */}
         <div className="vpn-metrics-grid">
           <div className="vpn-metric-card">
-            <span className="vpn-metric-val">{status.enabled ? status.endpoint || '198.51.100.42' : 'Direct ISP'}</span>
-            <span className="vpn-metric-lbl">Virtual IP / Endpoint</span>
+            <span className="vpn-metric-val">{status.enabled ? status.endpoint : 'Direct connection'}</span>
+            <span className="vpn-metric-lbl">Proxy endpoint</span>
           </div>
           <div className="vpn-metric-card">
-            <span className="vpn-metric-val">{status.enabled ? '18 ms' : 'N/A'}</span>
-            <span className="vpn-metric-lbl">Latency (Ping)</span>
+            <span className="vpn-metric-val">{status.enabled ? 'Active' : 'N/A'}</span>
+            <span className="vpn-metric-lbl">Connection state</span>
           </div>
         </div>
+        {status.message && <div className="vpn-message">{status.message}</div>}
       </div>
     </div>
   );

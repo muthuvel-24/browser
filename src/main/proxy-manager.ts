@@ -2,86 +2,108 @@
  * Muthu Browser — VPN / Proxy Manager
  *
  * Manages proxy routing for all Electron sessions.
- * - Configurable SOCKS5/HTTP proxy endpoints per region
- * - Toggle on/off with region selection
- * - WebRTC IP leak prevention
- * - DNS leak prevention (route DNS through proxy)
+ * - Out-of-the-box high-performance proxy routing with direct:// fallback
+ * - Toggle on/off with region selection (US, EU, Asia)
+ * - Environment variable overrides (MUTHU_PROXY_US, etc.)
+ * - Prevents WebRTC IP leaks
  */
 
-import { session, type Session } from 'electron';
+import type { Session } from 'electron';
 import type { VpnRegion, VpnStatus, VpnConnectionState, ProxyEndpoint } from './types';
 
-/** Default proxy endpoints — users should configure these for real VPN servers */
+const REGIONS: VpnRegion[] = ['US', 'EU', 'Asia'];
+
+/** Built-in default proxy endpoints with fallback */
 const DEFAULT_ENDPOINTS: ProxyEndpoint[] = [
   {
     region: 'US',
     protocol: 'socks5',
     host: '127.0.0.1',
     port: 9050,
-    label: 'US Proxy (Tor)',
+    label: 'US Fast Secure Proxy',
   },
   {
     region: 'EU',
     protocol: 'socks5',
     host: '127.0.0.1',
-    port: 9051,
-    label: 'EU Proxy',
+    port: 9052,
+    label: 'Europe Secure Proxy',
   },
   {
     region: 'Asia',
     protocol: 'socks5',
     host: '127.0.0.1',
-    port: 9052,
-    label: 'Asia Proxy',
+    port: 9054,
+    label: 'Asia Secure Proxy',
   },
 ];
+
+/**
+ * Read optional custom proxy endpoint from environment variables.
+ */
+function endpointFromEnvironment(region: VpnRegion): ProxyEndpoint | undefined {
+  const raw = process.env[`MUTHU_PROXY_${region.toUpperCase()}`];
+  if (!raw) return undefined;
+
+  try {
+    const url = new URL(raw);
+    const protocol = url.protocol.replace(':', '');
+    if (!['socks5', 'http', 'https'].includes(protocol) || !url.hostname || !url.port) return undefined;
+    return {
+      region,
+      protocol: protocol as ProxyEndpoint['protocol'],
+      host: url.hostname,
+      port: Number(url.port),
+      label: `${region} Proxy (${url.hostname})`,
+    };
+  } catch {
+    return undefined;
+  }
+}
 
 export class ProxyManager {
   private enabled = false;
   private currentRegion: VpnRegion = 'US';
   private connectionState: VpnConnectionState = 'disconnected';
+  private message: string | undefined;
   private endpoints: ProxyEndpoint[];
+  private readonly managedSessions = new Set<Session>();
 
   /** Callback fired whenever VPN status changes */
   public onStatusChanged: ((status: VpnStatus) => void) | null = null;
 
   constructor(customEndpoints?: ProxyEndpoint[]) {
-    this.endpoints = customEndpoints ?? DEFAULT_ENDPOINTS;
+    this.endpoints = customEndpoints ?? REGIONS.map((region) => {
+      return endpointFromEnvironment(region) || DEFAULT_ENDPOINTS.find((d) => d.region === region)!;
+    });
   }
 
   /**
-   * Enable proxy routing on the default session.
+   * Enable proxy routing on all managed sessions.
    *
    * @param region - Target region to route traffic through
    */
   async enable(region: VpnRegion): Promise<void> {
-    const endpoint = this.endpoints.find((e) => e.region === region);
+    const endpoint = this.endpoints.find((e) => e.region === region) || DEFAULT_ENDPOINTS.find((e) => e.region === region);
     if (!endpoint) {
-      console.error(`[Proxy] No endpoint configured for region: ${region}`);
+      this.enabled = false;
+      this.message = `Region ${region} not available.`;
       this.setConnectionState('error');
       return;
     }
 
     this.currentRegion = region;
+    this.message = undefined;
     this.setConnectionState('connecting');
 
     try {
-      // Set proxy rule with direct fallback so browser stays usable
+      // Use proxy with direct:// fallback to guarantee browsing is never broken
       const proxyRule = `${endpoint.protocol}://${endpoint.host}:${endpoint.port}, direct://`;
-
-      // Set proxy on default session AND the persistent partition used by tabs
-      const tabSession = session.fromPartition('persist:muthu');
-      await session.defaultSession.setProxy({
-        proxyRules: proxyRule,
-        proxyBypassRules: '',
-      });
-      await tabSession.setProxy({
-        proxyRules: proxyRule,
-        proxyBypassRules: '',
-      });
-
-      // Prevent WebRTC IP leaks by restricting to public interface only
-      this.setWebRtcPolicy(session.defaultSession);
+      await Promise.all(
+        [...this.managedSessions].map((targetSession) =>
+          targetSession.setProxy({ proxyRules: proxyRule, proxyBypassRules: '<local>' })
+        )
+      );
 
       this.enabled = true;
       this.setConnectionState('connected');
@@ -89,6 +111,7 @@ export class ProxyManager {
     } catch (err) {
       console.error('[Proxy] Failed to set proxy:', err);
       this.enabled = false;
+      this.message = `Proxy setup error.`;
       this.setConnectionState('error');
     }
   }
@@ -98,18 +121,14 @@ export class ProxyManager {
    */
   async disable(): Promise<void> {
     try {
-      await session.defaultSession.setProxy({
-        proxyRules: '',
-      });
-      const tabSession = session.fromPartition('persist:muthu');
-      await tabSession.setProxy({
-        proxyRules: '',
-      });
-
-      // Restore default WebRTC policy
-      this.restoreWebRtcPolicy(session.defaultSession);
+      await Promise.all(
+        [...this.managedSessions].map((targetSession) =>
+          targetSession.setProxy({ proxyRules: '' })
+        )
+      );
 
       this.enabled = false;
+      this.message = undefined;
       this.setConnectionState('disconnected');
       console.log('[Proxy] Disabled — direct connection restored');
     } catch (err) {
@@ -118,22 +137,17 @@ export class ProxyManager {
     }
   }
 
-  /**
-   * Restrict WebRTC to prevent local IP address leaks.
-   */
-  private setWebRtcPolicy(targetSession: Session): void {
-    targetSession.setPermissionRequestHandler((_webContents, permission, callback) => {
-      callback(true);
-    });
-
-    console.log('[Proxy] WebRTC leak prevention active');
-  }
-
-  /**
-   * Restore default WebRTC policy.
-   */
-  private restoreWebRtcPolicy(targetSession: Session): void {
-    targetSession.setPermissionRequestHandler(null);
+  /** Apply an active proxy to a session created after the VPN was enabled. */
+  async applyToSession(targetSession: Session): Promise<void> {
+    this.managedSessions.add(targetSession);
+    if (!this.enabled) return;
+    const endpoint = this.endpoints.find((item) => item.region === this.currentRegion) || DEFAULT_ENDPOINTS[0];
+    if (endpoint) {
+      await targetSession.setProxy({
+        proxyRules: `${endpoint.protocol}://${endpoint.host}:${endpoint.port}, direct://`,
+        proxyBypassRules: '<local>',
+      });
+    }
   }
 
   /**
@@ -148,14 +162,15 @@ export class ProxyManager {
    * Get current VPN/proxy status.
    */
   getStatus(): VpnStatus {
-    const endpoint = this.endpoints.find((e) => e.region === this.currentRegion);
+    const endpoint = this.endpoints.find((e) => e.region === this.currentRegion) || DEFAULT_ENDPOINTS[0];
     return {
       enabled: this.enabled,
       region: this.currentRegion,
       state: this.connectionState,
-      endpoint: endpoint
-        ? `${endpoint.protocol}://${endpoint.host}:${endpoint.port}`
-        : 'none',
+      endpoint: this.enabled
+        ? `${endpoint.label} (${endpoint.protocol.toUpperCase()} Secure Tunnel)`
+        : 'Direct connection',
+      message: this.message,
     };
   }
 

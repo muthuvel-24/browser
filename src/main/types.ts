@@ -57,6 +57,8 @@ export interface VpnStatus {
   state: VpnConnectionState;
   /** Display-friendly endpoint address */
   endpoint: string;
+  /** A user-facing explanation when a connection could not be established. */
+  message?: string;
 }
 
 /** Configurable proxy endpoint entry */
@@ -113,4 +115,3 @@ export interface FindMatchInfo {
   matches: number;
   finalUpdate: boolean;
 }
-

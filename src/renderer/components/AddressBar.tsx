@@ -3,7 +3,8 @@
  */
 
 import React, { useState, useEffect, useRef } from 'react';
-import type { AdBlockStats, VpnStatus } from '../../main/types';
+import type { AdBlockStats, VpnStatus, DownloadItemInfo } from '../../main/types';
+import DownloadManager from './DownloadManager';
 import './AddressBar.css';
 
 interface AddressBarProps {
@@ -15,6 +16,7 @@ interface AddressBarProps {
   isPrivate?: boolean;
   adBlockStats?: AdBlockStats;
   vpnStatus?: VpnStatus;
+  downloads?: DownloadItemInfo[];
   onNavigate: (url: string) => void;
   onBack: () => void;
   onForward: () => void;
@@ -48,6 +50,7 @@ const AddressBar: React.FC<AddressBarProps> = ({
   isPrivate,
   adBlockStats,
   vpnStatus,
+  downloads = [],
   onNavigate,
   onBack,
   onForward,
@@ -241,6 +244,9 @@ const AddressBar: React.FC<AddressBarProps> = ({
           </span>
           <span className={`vpn-pill-indicator ${vpnStatus?.enabled ? 'vpn-pill-indicator--on' : ''}`} />
         </button>
+
+        {/* Downloads */}
+        <DownloadManager downloads={downloads} />
 
         {/* Find in Page */}
         {onFindClick && (

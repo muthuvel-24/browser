@@ -175,3 +175,9 @@ input:checked + .slider:before {
   font-size: 10.5px;
   color: var(--text-secondary);
 }
+
+.vpn-message {
+  color: #ffb74d;
+  font-size: 12px;
+  line-height: 1.35;
+}

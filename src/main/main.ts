@@ -21,42 +21,6 @@ import { normalizeUrl } from './url-utils';
 import { IPC } from '../shared/ipc-channels';
 import type { VpnRegion } from './types';
 
-/**
- * Strip X-Frame-Options and CSP frame-ancestors from every response so that
- * nested iframes and embedded content load without framing errors inside Muthu.
- */
-function stripFrameAncestors(targetSession: Session): void {
-  targetSession.webRequest.onHeadersReceived((details, callback) => {
-    const responseHeaders = { ...(details.responseHeaders ?? {}) };
-
-    for (const key of Object.keys(responseHeaders)) {
-      const lower = key.toLowerCase();
-      if (lower === 'x-frame-options') {
-        delete responseHeaders[key];
-        continue;
-      }
-      if (lower === 'content-security-policy' || lower === 'content-security-policy-report-only') {
-        const values = responseHeaders[key];
-        if (!values) continue;
-        const list = Array.isArray(values) ? values : [values];
-        const rewritten = list
-          .map((csp) =>
-            String(csp)
-              .split(';')
-              .map((d) => d.trim())
-              .filter((d) => d && !d.toLowerCase().startsWith('frame-ancestors'))
-              .join('; ')
-          )
-          .filter(Boolean);
-        if (rewritten.length === 0) delete responseHeaders[key];
-        else responseHeaders[key] = rewritten;
-      }
-    }
-
-    callback({ responseHeaders });
-  });
-}
-
 // ─── Chromium Flags ─────────────────────────────────────────────
 app.commandLine.appendSwitch('js-flags', '--max-old-space-size=256');
 app.commandLine.appendSwitch('gpu-rasterization-msaa-sample-count', '0');
@@ -65,6 +29,8 @@ app.commandLine.appendSwitch('renderer-process-limit', '8');
 app.commandLine.appendSwitch('disable-quic');
 // Disable Chromium automation signal checked by Google Sign-In ("This browser or app may not be secure")
 app.commandLine.appendSwitch('disable-blink-features', 'AutomationControlled');
+// Avoid exposing a local address over WebRTC when a proxy is in use.
+app.commandLine.appendSwitch('force-webrtc-ip-handling-policy', 'disable_non_proxied_udp');
 
 declare const MAIN_WINDOW_VITE_DEV_SERVER_URL: string | undefined;
 declare const MAIN_WINDOW_VITE_NAME: string;
@@ -75,6 +41,7 @@ let tabManager: TabManager;
 let memoryManager: MemoryManager;
 let adBlockEngine: AdBlockEngine;
 let proxyManager: ProxyManager;
+const configuredTabSessions = new WeakSet<Session>();
 
 // ─── Chrome-compatible User-Agent & Client Hints ────────────────
 const CHROME_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
@@ -171,19 +138,45 @@ async function createMainWindow(): Promise<void> {
   configureChromeHeaders(tabSession);
   configureChromeHeaders(session.defaultSession);
 
-  // Strip X-Frame-Options & CSP frame-ancestors from ALL sessions
-  stripFrameAncestors(tabSession);
-  stripFrameAncestors(session.defaultSession);
-  if (toolbarView.webContents.session !== tabSession) {
-    stripFrameAncestors(toolbarView.webContents.session);
-  }
-
   // Enforce secure permission handlers
   setupSecurePermissions(tabSession);
   setupSecurePermissions(session.defaultSession);
 
+  // ─── Proxy Manager ───────────────────────────────────────────
+  proxyManager = new ProxyManager();
+  proxyManager.onStatusChanged = (status) => {
+    if (toolbarView && !toolbarView.webContents.isDestroyed()) {
+      toolbarView.webContents.send(IPC.VPN_STATUS_CHANGED, status);
+    }
+  };
+
+  // ─── Ad Blocker ──────────────────────────────────────────────
+  adBlockEngine = new AdBlockEngine();
+  adBlockEngine.onStatsUpdated = (stats) => {
+    if (toolbarView && !toolbarView.webContents.isDestroyed()) {
+      toolbarView.webContents.send(IPC.ADBLOCK_STATS_UPDATED, stats);
+    }
+  };
+  try {
+    await adBlockEngine.initialize();
+    adBlockEngine.enableOnSession(tabSession);
+  } catch (err) {
+    console.error('[Main] AdBlock init failed (non-fatal):', err);
+  }
+
+  const configureTabSession = (targetSession: Session) => {
+    if (configuredTabSessions.has(targetSession)) return;
+    configuredTabSessions.add(targetSession);
+    targetSession.setUserAgent(CHROME_UA);
+    configureChromeHeaders(targetSession);
+    setupSecurePermissions(targetSession);
+    adBlockEngine.enableOnSession(targetSession);
+    void proxyManager.applyToSession(targetSession).catch(() => {});
+  };
+  configureTabSession(tabSession);
+
   // ─── Tab Manager ─────────────────────────────────────────────
-  tabManager = new TabManager(mainWindow);
+  tabManager = new TabManager(mainWindow, configureTabSession);
   tabManager.setToolbarView(toolbarView);
   tabManager.onTabsUpdated = (tabs) => {
     if (toolbarView && !toolbarView.webContents.isDestroyed()) {
@@ -207,28 +200,6 @@ async function createMainWindow(): Promise<void> {
     }
   };
   memoryManager.start();
-
-  // ─── Ad Blocker ──────────────────────────────────────────────
-  adBlockEngine = new AdBlockEngine();
-  adBlockEngine.onStatsUpdated = (stats) => {
-    if (toolbarView && !toolbarView.webContents.isDestroyed()) {
-      toolbarView.webContents.send(IPC.ADBLOCK_STATS_UPDATED, stats);
-    }
-  };
-  try {
-    await adBlockEngine.initialize();
-    adBlockEngine.enableOnSession(tabSession);
-  } catch (err) {
-    console.error('[Main] AdBlock init failed (non-fatal):', err);
-  }
-
-  // ─── Proxy Manager ───────────────────────────────────────────
-  proxyManager = new ProxyManager();
-  proxyManager.onStatusChanged = (status) => {
-    if (toolbarView && !toolbarView.webContents.isDestroyed()) {
-      toolbarView.webContents.send(IPC.VPN_STATUS_CHANGED, status);
-    }
-  };
 
   // ─── Initial Tabs ─────────────────────────────────────────────
   // Start with Google (New Tab) as the only active tab
