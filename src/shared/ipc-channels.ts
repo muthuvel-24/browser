@@ -42,6 +42,7 @@ export const IPC = {
   VPN_ENABLE:        'vpn:enable',
   VPN_DISABLE:       'vpn:disable',
   VPN_GET_STATUS:    'vpn:get-status',
+  VPN_CHECK_IP:      'vpn:check-ip',
   VPN_STATUS_CHANGED:'vpn:status-changed', // main → renderer
 
   // ─── Ad Blocker ───────────────────────────────────────────────

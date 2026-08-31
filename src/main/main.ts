@@ -41,6 +41,10 @@ app.commandLine.appendSwitch('disable-quic');
 app.commandLine.appendSwitch('disable-blink-features', 'AutomationControlled');
 // Avoid exposing a local address over WebRTC when a proxy is in use.
 app.commandLine.appendSwitch('force-webrtc-ip-handling-policy', 'disable_non_proxied_udp');
+// Encrypted DNS-over-HTTPS (DoH) — protects browsing queries from being logged by network servers or ISPs
+app.commandLine.appendSwitch('enable-features', 'DnsOverHttps');
+app.commandLine.appendSwitch('dns-over-https-mode', 'automatic');
+app.commandLine.appendSwitch('dns-over-https-templates', 'https://cloudflare-dns.com/dns-query{?dns}');
 
 declare const MAIN_WINDOW_VITE_DEV_SERVER_URL: string | undefined;
 declare const MAIN_WINDOW_VITE_NAME: string;
@@ -450,6 +454,10 @@ function registerIpcHandlers(): void {
   ipcMain.handle(IPC.VPN_GET_STATUS, () =>
     proxyManager?.getStatus() ?? { enabled: false, region: 'US', state: 'disconnected', endpoint: 'none' }
   );
+
+  ipcMain.handle(IPC.VPN_CHECK_IP, async () => {
+    return proxyManager?.checkIp() ?? { ip: 'Direct connection', status: 'Direct', encrypted: false };
+  });
 
   ipcMain.handle(IPC.ADBLOCK_GET_STATS, () =>
     adBlockEngine?.getStats() ?? { totalBlocked: 0, sessionBlocked: 0, perTab: {} }

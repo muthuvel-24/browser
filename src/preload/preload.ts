@@ -137,6 +137,11 @@ const muthuAPI = {
     return ipcRenderer.invoke(IPC.VPN_GET_STATUS);
   },
 
+  /** Check external IP and VPN encryption status. */
+  vpnCheckIp: (): Promise<{ ip: string; status: string; encrypted: boolean }> => {
+    return ipcRenderer.invoke(IPC.VPN_CHECK_IP);
+  },
+
   // ─── Ad Blocker ─────────────────────────────────────────────
 
   /** Get current ad-block statistics. */

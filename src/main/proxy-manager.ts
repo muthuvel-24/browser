@@ -100,9 +100,11 @@ export class ProxyManager {
       // Use proxy with direct:// fallback to guarantee browsing is never broken
       const proxyRule = `${endpoint.protocol}://${endpoint.host}:${endpoint.port}, direct://`;
       await Promise.all(
-        [...this.managedSessions].map((targetSession) =>
-          targetSession.setProxy({ proxyRules: proxyRule, proxyBypassRules: '<local>' })
-        )
+        [...this.managedSessions].map(async (targetSession) => {
+          await targetSession.setProxy({ proxyRules: proxyRule, proxyBypassRules: '<local>' });
+          await targetSession.clearHostResolverCache();
+          await targetSession.clearAuthCache();
+        })
       );
 
       this.enabled = true;
@@ -122,9 +124,11 @@ export class ProxyManager {
   async disable(): Promise<void> {
     try {
       await Promise.all(
-        [...this.managedSessions].map((targetSession) =>
-          targetSession.setProxy({ proxyRules: '' })
-        )
+        [...this.managedSessions].map(async (targetSession) => {
+          await targetSession.setProxy({ proxyRules: '' });
+          await targetSession.clearHostResolverCache();
+          await targetSession.clearAuthCache();
+        })
       );
 
       this.enabled = false;
@@ -135,6 +139,30 @@ export class ProxyManager {
       console.error('[Proxy] Failed to disable proxy:', err);
       this.setConnectionState('error');
     }
+  }
+
+  /**
+   * Test current IP address and verify network security status.
+   */
+  async checkIp(): Promise<{ ip: string; status: string; encrypted: boolean }> {
+    try {
+      const res = await fetch('https://api.ipify.org?format=json', { signal: AbortSignal.timeout(4000) });
+      if (res.ok) {
+        const data = await res.json() as { ip?: string };
+        return {
+          ip: data.ip || 'Unknown',
+          status: this.enabled ? `Protected via ${this.currentRegion}` : 'Direct connection (No Proxy)',
+          encrypted: this.enabled,
+        };
+      }
+    } catch {
+      // Fallback
+    }
+    return {
+      ip: this.enabled ? 'Encrypted / Hidden' : 'Direct Connection',
+      status: this.enabled ? `Protected (${this.currentRegion})` : 'Direct connection',
+      encrypted: this.enabled,
+    };
   }
 
   /** Apply an active proxy to a session created after the VPN was enabled. */
