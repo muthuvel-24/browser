@@ -132,6 +132,37 @@ const INJECTION_SCRIPT = `
           return getParameter2.apply(this, [parameter]);
         };
       }
+
+      // Geolocation & Real-Location Spoofing (Shields against "where i am now" / Wi-Fi triangulation)
+      if (navigator.geolocation) {
+        var spoofLat = 40.7128;
+        var spoofLng = -74.0060;
+
+        navigator.geolocation.getCurrentPosition = function(successCallback, errorCallback, options) {
+          if (typeof successCallback === 'function') {
+            var position = {
+              coords: {
+                latitude: spoofLat + (Math.random() * 0.002 - 0.001),
+                longitude: spoofLng + (Math.random() * 0.002 - 0.001),
+                altitude: null,
+                accuracy: 20,
+                altitudeAccuracy: null,
+                heading: null,
+                speed: null
+              },
+              timestamp: Date.now()
+            };
+            setTimeout(function() { successCallback(position); }, 10);
+          }
+        };
+
+        navigator.geolocation.watchPosition = function(successCallback, errorCallback, options) {
+          navigator.geolocation.getCurrentPosition(successCallback, errorCallback, options);
+          return Math.floor(Math.random() * 100000);
+        };
+
+        navigator.geolocation.clearWatch = function() {};
+      }
     } catch (e) {}
 
     // 6. Clean YouTube Player Ads from window.ytInitialPlayerResponse

@@ -95,11 +95,21 @@ const SAFE_PERMISSIONS = new Set(['fullscreen', 'clipboard-read', 'clipboard-san
  */
 function setupSecurePermissions(targetSession: Session): void {
   targetSession.setPermissionRequestHandler((_webContents, permission, callback) => {
+    // Geolocation is allowed so spoofed VPN coordinates (US / EU / Asia) are delivered
+    if (permission === 'geolocation') {
+      callback(true);
+      return;
+    }
     const isAllowed = SAFE_PERMISSIONS.has(permission);
     if (!isAllowed) {
       console.warn(`[Security] Restricted unprompted permission request: ${permission}`);
     }
     callback(isAllowed);
+  });
+
+  targetSession.setPermissionCheckHandler((_webContents, permission) => {
+    if (permission === 'geolocation') return true;
+    return SAFE_PERMISSIONS.has(permission);
   });
 }
 
