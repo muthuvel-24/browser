@@ -84,8 +84,13 @@ const DEFAULT_MEMORY_STATS: MemoryStats = {
   discardedTabs: 0,
   activeTabs: 1,
   totalTabs: 1,
+  browserProcessMB: 120,
   processMemoryMB: 120,
+  renderersMemoryMB: 160,
   totalSuiteMemoryMB: 280,
+  systemTotalMB: 16384,
+  systemFreeMB: 8192,
+  estimatedSavedMB: 0,
   cpuPercent: 1.2,
   pressureLevel: 'normal',
 };

@@ -249,12 +249,12 @@ export class TabManager {
       }
     }
 
-    // Save to closed tabs stack (if non-empty URL)
-    if (closingRecord && closingRecord.url && closingRecord.url !== 'speeddial' && closingRecord.url !== SPEED_DIAL_DATA_URL) {
+    // Save to closed tabs stack (NEVER save private tabs to prevent session data restoration)
+    if (!closingRecord?.isPrivate && closingRecord?.url && closingRecord.url !== 'speeddial' && closingRecord.url !== SPEED_DIAL_DATA_URL) {
       this.closedTabs.push({
         url: closingRecord.url,
         title: closingRecord.title,
-        isPrivate: closingRecord.isPrivate,
+        isPrivate: false,
       });
       if (this.closedTabs.length > 30) {
         this.closedTabs.shift();
@@ -288,20 +288,29 @@ export class TabManager {
 
   /**
    * Reopen the most recently closed tab (Ctrl+Shift+T).
+   * Will never restore private tabs.
    */
   restoreClosedTab(): string | null {
     const item = this.closedTabs.pop();
     if (!item) return null;
-    return this.createTab(item.url, item.isPrivate);
+    return this.createTab(item.url, false);
   }
 
   /**
-   * Duplicate an existing tab.
+   * Duplicate an existing tab, cloning navigation history and scroll state.
    */
   duplicateTab(tabId: string): string | null {
     const record = this.tabs.get(tabId);
     if (!record) return null;
-    return this.createTab(record.url, record.isPrivate);
+    const newTabId = this.createTab(record.url, record.isPrivate);
+    const newRecord = this.tabs.get(newTabId);
+    if (newRecord) {
+      newRecord.historyEntries = [...(record.historyEntries || [])];
+      newRecord.historyIndex = record.historyIndex ?? 0;
+      newRecord.scrollPosition = { ...(record.scrollPosition || { x: 0, y: 0 }) };
+      newRecord.title = record.title;
+    }
+    return newTabId;
   }
 
   /**
@@ -658,7 +667,16 @@ export class TabManager {
     wc.on('did-navigate', (_event, url) => {
       const record = this.tabs.get(tabId);
       if (record) {
-        record.url = isSpeedDialUrl(url) ? 'speeddial' : url;
+        const cleanUrl = isSpeedDialUrl(url) ? 'speeddial' : url;
+        record.url = cleanUrl;
+        if (cleanUrl !== 'speeddial') {
+          if (!record.historyEntries) record.historyEntries = [];
+          if (record.historyIndex < record.historyEntries.length - 1) {
+            record.historyEntries = record.historyEntries.slice(0, record.historyIndex + 1);
+          }
+          record.historyEntries.push({ url: cleanUrl, title: record.title || cleanUrl });
+          record.historyIndex = record.historyEntries.length - 1;
+        }
         if (isSpeedDialUrl(url)) {
           record.title = 'Speed Dial';
         }

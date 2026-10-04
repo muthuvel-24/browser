@@ -24,6 +24,7 @@ import { VpnController } from './vpn-controller';
 import { SearchClient } from './search-client';
 import { AiClient } from './ai-client';
 import { BenchmarkSuite } from './benchmark';
+import { NetworkCoordinator } from './network-coordinator';
 import { normalizeUrl, isAuthOrPopup } from './url-utils';
 import { IPC } from '../shared/ipc-channels';
 import type { VpnRegion } from './types';
@@ -32,8 +33,6 @@ import {
   setupCertificateHandling,
   sanitizeFilename,
   isDangerousExtension,
-  setupToolbarSecurityHeaders,
-  setupTabSecurityHeaders,
   isSafeNavigation,
 } from './security-manager';
 
@@ -64,6 +63,7 @@ let proxyManager: ProxyManager;
 let settingsStore: SettingsStore;
 let permissionManager: PermissionManager;
 let privacyEngine: PrivacyEngine;
+let networkCoordinator: NetworkCoordinator;
 let vpnController: VpnController;
 let searchClient: SearchClient;
 let aiClient: AiClient;
@@ -158,7 +158,6 @@ async function createMainWindow(): Promise<void> {
   const contentBounds = mainWindow.getContentBounds();
   toolbarView.setBounds({ x: 0, y: 0, width: contentBounds.width, height: 110 });
   toolbarView.setBackgroundColor('#0f0f1a');
-  setupToolbarSecurityHeaders(toolbarView.webContents.session);
   mainWindow.contentView.addChildView(toolbarView);
 
   if (MAIN_WINDOW_VITE_DEV_SERVER_URL) {
@@ -174,16 +173,6 @@ async function createMainWindow(): Promise<void> {
   tabSession.setUserAgent(CHROME_UA);
   session.defaultSession.setUserAgent(CHROME_UA);
 
-  // Configure Chrome headers & Client Hints to satisfy Google Sign-In
-  configureChromeHeaders(tabSession);
-  configureChromeHeaders(session.defaultSession);
-
-  // Enforce secure permission handlers & security headers
-  setupSecurePermissions(tabSession);
-  setupSecurePermissions(session.defaultSession);
-  setupTabSecurityHeaders(tabSession);
-  setupTabSecurityHeaders(session.defaultSession);
-
   // ─── Permission Manager ─────────────────────────────────────
   permissionManager = new PermissionManager();
   permissionManager.onPromptRequested = (prompt) => {
@@ -192,15 +181,37 @@ async function createMainWindow(): Promise<void> {
     }
   };
 
-  // ─── Privacy Engine ─────────────────────────────────────────
+  // Enforce secure permission handlers
+  setupSecurePermissions(tabSession);
+  setupSecurePermissions(session.defaultSession);
+
+  // ─── Privacy Engine & AdBlock Engine ────────────────────────
   privacyEngine = new PrivacyEngine();
-  privacyEngine.attachToSession(tabSession);
-  privacyEngine.attachToSession(session.defaultSession);
+  adBlockEngine = new AdBlockEngine();
+  adBlockEngine.setEnabled(settingsStore.get('adBlockerEnabled'));
+  adBlockEngine.setWhitelist(settingsStore.get('adBlockerWhitelist'));
+  privacyEngine.setEnabled(settingsStore.get('adBlockerEnabled'));
+  privacyEngine.setWhitelist(settingsStore.get('adBlockerWhitelist'));
+
   privacyEngine.onStatsChanged = (stats) => {
     if (toolbarView && !toolbarView.webContents.isDestroyed()) {
       toolbarView.webContents.send(IPC.PRIVACY_STATS_UPDATED, stats);
     }
   };
+
+  adBlockEngine.onStatsUpdated = (stats) => {
+    if (toolbarView && !toolbarView.webContents.isDestroyed()) {
+      toolbarView.webContents.send(IPC.ADBLOCK_STATS_UPDATED, stats);
+    }
+  };
+
+  // ─── Unified Network Coordinator (Single Authoritative webRequest Owner) ──
+  networkCoordinator = new NetworkCoordinator(privacyEngine, adBlockEngine, settingsStore);
+  networkCoordinator.attachToSession(tabSession, false);
+  networkCoordinator.attachToSession(session.defaultSession, false);
+  if (toolbarView) {
+    networkCoordinator.attachToSession(toolbarView.webContents.session, true);
+  }
 
   // ─── VPN & Tunnel Controller ────────────────────────────────
   vpnController = new VpnController();
@@ -224,22 +235,6 @@ async function createMainWindow(): Promise<void> {
     }
   };
 
-  // ─── Ad Blocker ──────────────────────────────────────────────
-  adBlockEngine = new AdBlockEngine();
-  adBlockEngine.setEnabled(settingsStore.get('adBlockerEnabled'));
-  adBlockEngine.setWhitelist(settingsStore.get('adBlockerWhitelist'));
-  adBlockEngine.onStatsUpdated = (stats) => {
-    if (toolbarView && !toolbarView.webContents.isDestroyed()) {
-      toolbarView.webContents.send(IPC.ADBLOCK_STATS_UPDATED, stats);
-    }
-  };
-  try {
-    await adBlockEngine.initialize();
-    adBlockEngine.enableOnSession(tabSession);
-  } catch (err) {
-    console.error('[Main] AdBlock init failed (non-fatal):', err);
-  }
-
   // Hook Settings changes
   settingsStore.onSettingsChanged = (settings) => {
     if (toolbarView && !toolbarView.webContents.isDestroyed()) {
@@ -251,21 +246,13 @@ async function createMainWindow(): Promise<void> {
     privacyEngine.setWhitelist(settings.adBlockerWhitelist);
   };
 
-  // Auto-connect VPN if setting enabled
-  if (settingsStore.get('vpnAutoConnect')) {
-    void proxyManager.enable(settingsStore.get('vpnDefaultRegion')).catch(() => {});
-  }
-
   const configureTabSession = (targetSession: Session) => {
     if (configuredTabSessions.has(targetSession)) return;
     configuredTabSessions.add(targetSession);
     targetSession.setUserAgent(CHROME_UA);
-    configureChromeHeaders(targetSession);
     setupSecurePermissions(targetSession);
-    privacyEngine.attachToSession(targetSession);
-    adBlockEngine.enableOnSession(targetSession);
+    networkCoordinator.attachToSession(targetSession, false);
     vpnController.registerSession(targetSession);
-    void proxyManager.applyToSession(targetSession).catch(() => {});
   };
   configureTabSession(tabSession);
 
@@ -491,132 +478,241 @@ function registerIpcHandlers(): void {
   });
 
   ipcMain.handle(IPC.ZOOM_IN, () => tabManager?.zoomIn() ?? 1);
-  ipcMain.handle(IPC.ZOOM_OUT, () => tabManager?.zoomOut() ?? 1);
-  ipcMain.handle(IPC.ZOOM_RESET, () => tabManager?.zoomReset() ?? 1);
+  function assertAuthorizedSender(event: Electron.IpcMainInvokeEvent, channel: string): void {
+    if (!toolbarView || toolbarView.webContents.isDestroyed()) {
+      throw new Error(`[IPC Security] Toolbar view unavailable for ${channel}`);
+    }
+    if (event.sender.id !== toolbarView.webContents.id) {
+      console.warn(`[IPC Security] Denied unauthorized call to ${channel} from webContents ${event.sender.id}`);
+      throw new Error(`[IPC Security] Unauthorized caller for ${channel}`);
+    }
+  }
 
-  ipcMain.handle(IPC.DEVTOOLS_TOGGLE, () => tabManager?.toggleDevTools());
-
-  ipcMain.handle(IPC.DOWNLOAD_GET_LIST, () => downloads);
-
-  ipcMain.handle(IPC.VPN_ENABLE, async (_event, region: VpnRegion) => {
-    if (!proxyManager) return { enabled: false, region, state: 'disconnected', endpoint: 'none' };
-    await proxyManager.enable(region);
-    return proxyManager.getStatus();
+  ipcMain.handle(IPC.ZOOM_OUT, (event) => {
+    assertAuthorizedSender(event, IPC.ZOOM_OUT);
+    return tabManager?.zoomOut() ?? 1;
+  });
+  ipcMain.handle(IPC.ZOOM_RESET, (event) => {
+    assertAuthorizedSender(event, IPC.ZOOM_RESET);
+    return tabManager?.zoomReset() ?? 1;
   });
 
-  ipcMain.handle(IPC.VPN_DISABLE, async () => {
-    if (!proxyManager) return { enabled: false, region: 'US', state: 'disconnected', endpoint: 'none' };
-    await proxyManager.disable();
-    return proxyManager.getStatus();
+  ipcMain.handle(IPC.DEVTOOLS_TOGGLE, (event) => {
+    assertAuthorizedSender(event, IPC.DEVTOOLS_TOGGLE);
+    return tabManager?.toggleDevTools();
   });
 
-  ipcMain.handle(IPC.VPN_GET_STATUS, () =>
-    proxyManager?.getStatus() ?? { enabled: false, region: 'US', state: 'disconnected', endpoint: 'none' }
-  );
+  ipcMain.handle(IPC.DOWNLOAD_GET_LIST, (event) => {
+    assertAuthorizedSender(event, IPC.DOWNLOAD_GET_LIST);
+    return downloads;
+  });
 
-  ipcMain.handle(IPC.VPN_CHECK_IP, async () => {
+  ipcMain.handle(IPC.VPN_ENABLE, async (event, region: VpnRegion) => {
+    assertAuthorizedSender(event, IPC.VPN_ENABLE);
+    const validRegions = new Set<VpnRegion>(['US', 'EU', 'Asia']);
+    const safeRegion = validRegions.has(region) ? region : 'US';
+    const locMap: Record<VpnRegion, string> = { US: 'us-east', EU: 'eu-central', Asia: 'asia-sg' };
+    const res = await vpnController.connectVpn(locMap[safeRegion]);
+    return {
+      enabled: res.state === 'connected',
+      region: safeRegion,
+      state: res.state,
+      endpoint: res.tunnelInfo.endpoint || 'none',
+      message: res.message,
+    };
+  });
+
+  ipcMain.handle(IPC.VPN_DISABLE, async (event) => {
+    assertAuthorizedSender(event, IPC.VPN_DISABLE);
+    const res = await vpnController.disconnectVpn();
+    return {
+      enabled: false,
+      region: 'US',
+      state: res.state,
+      endpoint: 'none',
+      message: res.message,
+    };
+  });
+
+  ipcMain.handle(IPC.VPN_GET_STATUS, (event) => {
+    assertAuthorizedSender(event, IPC.VPN_GET_STATUS);
+    const status = vpnController.getStatus();
+    return {
+      enabled: status.state === 'connected',
+      region: (status.selectedLocation || 'US') as VpnRegion,
+      state: status.state,
+      endpoint: status.tunnelInfo.endpoint || 'none',
+      message: status.message,
+    };
+  });
+
+  ipcMain.handle(IPC.VPN_CHECK_IP, async (event) => {
+    assertAuthorizedSender(event, IPC.VPN_CHECK_IP);
     return proxyManager?.checkIp() ?? { ip: 'Direct connection', status: 'Direct', encrypted: false };
   });
 
-  ipcMain.handle(IPC.ADBLOCK_GET_STATS, () =>
-    adBlockEngine?.getStats() ?? { totalBlocked: 0, sessionBlocked: 0, perTab: {} }
-  );
+  ipcMain.handle(IPC.ADBLOCK_GET_STATS, (event) => {
+    assertAuthorizedSender(event, IPC.ADBLOCK_GET_STATS);
+    return adBlockEngine?.getStats() ?? { totalBlocked: 0, sessionBlocked: 0, perTab: {} };
+  });
 
-  ipcMain.handle(IPC.MEMORY_GET_STATS, () =>
-    memoryManager?.getStats() ?? { sleepingTabs: 0, discardedTabs: 0, activeTabs: 1, estimatedSavedMB: 0 }
-  );
+  ipcMain.handle(IPC.MEMORY_GET_STATS, (event) => {
+    assertAuthorizedSender(event, IPC.MEMORY_GET_STATS);
+    return memoryManager?.getStats() ?? {
+      sleepingTabs: 0,
+      discardedTabs: 0,
+      activeTabs: 1,
+      totalTabs: 1,
+      browserProcessMB: 0,
+      processMemoryMB: 0,
+      renderersMemoryMB: 0,
+      totalSuiteMemoryMB: 0,
+      systemTotalMB: 0,
+      systemFreeMB: 0,
+      estimatedSavedMB: 0,
+      cpuPercent: 0,
+      pressureLevel: 'normal',
+    };
+  });
 
-  ipcMain.handle(IPC.MEMORY_RESTORE_TAB, (_event, tabId: string) => {
-    tabManager?.restoreTab(tabId);
+  ipcMain.handle(IPC.MEMORY_RESTORE_TAB, (event, tabId: string) => {
+    assertAuthorizedSender(event, IPC.MEMORY_RESTORE_TAB);
+    if (typeof tabId === 'string' && tabId.length <= 128) {
+      tabManager?.restoreTab(tabId);
+    }
   });
 
   // ─── Settings IPC ───────────────────────────────────────────
-  ipcMain.handle(IPC.SETTINGS_GET, (_event, key: keyof BrowserSettings) => {
+  ipcMain.handle(IPC.SETTINGS_GET, (event, key: keyof BrowserSettings) => {
+    assertAuthorizedSender(event, IPC.SETTINGS_GET);
     return settingsStore?.get(key);
   });
 
-  ipcMain.handle(IPC.SETTINGS_SET, (_event, key: keyof BrowserSettings, value: unknown) => {
+  ipcMain.handle(IPC.SETTINGS_SET, (event, key: keyof BrowserSettings, value: unknown) => {
+    assertAuthorizedSender(event, IPC.SETTINGS_SET);
     settingsStore?.set(key, value as never);
   });
 
-  ipcMain.handle(IPC.SETTINGS_GET_ALL, () => {
+  ipcMain.handle(IPC.SETTINGS_GET_ALL, (event) => {
+    assertAuthorizedSender(event, IPC.SETTINGS_GET_ALL);
     return settingsStore?.getAll() ?? {};
   });
 
-  ipcMain.handle(IPC.SETTINGS_SET_ALL, (_event, partial: Partial<BrowserSettings>) => {
-    settingsStore?.setAll(partial);
+  ipcMain.handle(IPC.SETTINGS_SET_ALL, (event, partial: Partial<BrowserSettings>) => {
+    assertAuthorizedSender(event, IPC.SETTINGS_SET_ALL);
+    if (partial && typeof partial === 'object') {
+      settingsStore?.setAll(partial);
+    }
   });
 
-  ipcMain.handle(IPC.SETTINGS_RESET, () => {
+  ipcMain.handle(IPC.SETTINGS_RESET, (event) => {
+    assertAuthorizedSender(event, IPC.SETTINGS_RESET);
     settingsStore?.reset();
   });
 
-  ipcMain.handle(IPC.CLEAR_BROWSING_DATA, async (_event, options: ClearDataOptions) => {
+  ipcMain.handle(IPC.CLEAR_BROWSING_DATA, async (event, options: ClearDataOptions) => {
+    assertAuthorizedSender(event, IPC.CLEAR_BROWSING_DATA);
     await handleClearBrowsingData(options);
   });
 
   // ─── Tab Operations ─────────────────────────────────────────
-  ipcMain.handle(IPC.TAB_DUPLICATE, (_event, tabId: string) => {
-    return tabManager?.duplicateTab(tabId);
+  ipcMain.handle(IPC.TAB_DUPLICATE, (event, tabId: string) => {
+    assertAuthorizedSender(event, IPC.TAB_DUPLICATE);
+    if (typeof tabId === 'string' && tabId.length <= 128) {
+      return tabManager?.duplicateTab(tabId);
+    }
+    return null;
   });
 
-  ipcMain.handle(IPC.TAB_RESTORE_CLOSED, () => {
+  ipcMain.handle(IPC.TAB_RESTORE_CLOSED, (event) => {
+    assertAuthorizedSender(event, IPC.TAB_RESTORE_CLOSED);
     return tabManager?.restoreClosedTab();
   });
 
   // ─── Permission Manager IPC ─────────────────────────────────
-  ipcMain.handle(IPC.PERMISSION_RESPONSE, (_event, promptId: string, decision: 'allow' | 'block', remember: boolean) => {
-    return permissionManager?.resolvePrompt(promptId, decision, remember) ?? false;
+  ipcMain.handle(IPC.PERMISSION_RESPONSE, (event, promptId: string, decision: 'allow' | 'block', remember: boolean) => {
+    assertAuthorizedSender(event, IPC.PERMISSION_RESPONSE);
+    if (typeof promptId === 'string' && (decision === 'allow' || decision === 'block')) {
+      return permissionManager?.resolvePrompt(promptId, decision, Boolean(remember)) ?? false;
+    }
+    return false;
   });
 
-  ipcMain.handle(IPC.PERMISSION_GET_ALL, () => {
+  ipcMain.handle(IPC.PERMISSION_GET_ALL, (event) => {
+    assertAuthorizedSender(event, IPC.PERMISSION_GET_ALL);
     return permissionManager?.getAllPermissions() ?? {};
   });
 
-  ipcMain.handle(IPC.PERMISSION_SET, (_event, origin: string, perm: any, decision: any) => {
-    permissionManager?.setSitePermission(origin, perm, decision);
+  ipcMain.handle(IPC.PERMISSION_SET, (event, origin: string, perm: any, decision: any) => {
+    assertAuthorizedSender(event, IPC.PERMISSION_SET);
+    if (typeof origin === 'string' && origin.length <= 512) {
+      permissionManager?.setSitePermission(origin, perm, decision);
+    }
   });
 
-  ipcMain.handle(IPC.PERMISSION_RESET, (_event, origin: string) => {
-    permissionManager?.resetSitePermissions(origin);
+  ipcMain.handle(IPC.PERMISSION_RESET, (event, origin: string) => {
+    assertAuthorizedSender(event, IPC.PERMISSION_RESET);
+    if (typeof origin === 'string' && origin.length <= 512) {
+      permissionManager?.resetSitePermissions(origin);
+    }
   });
 
   // ─── Privacy Engine IPC ─────────────────────────────────────
-  ipcMain.handle(IPC.PRIVACY_GET_SITE_STATS, (_event, domain: string) => {
-    return privacyEngine?.getSiteStats(domain) ?? { domain, adsBlocked: 0, trackersBlocked: 0, thirdPartyBlocked: 0, cookiesBlocked: 0, shieldEnabled: true };
+  ipcMain.handle(IPC.PRIVACY_GET_SITE_STATS, (event, domain: string) => {
+    assertAuthorizedSender(event, IPC.PRIVACY_GET_SITE_STATS);
+    if (typeof domain === 'string' && domain.length <= 256) {
+      return privacyEngine?.getSiteStats(domain) ?? { domain, adsBlocked: 0, trackersBlocked: 0, thirdPartyBlocked: 0, cookiesBlocked: 0, shieldEnabled: true };
+    }
+    return { domain: '', adsBlocked: 0, trackersBlocked: 0, thirdPartyBlocked: 0, cookiesBlocked: 0, shieldEnabled: true };
   });
 
-  ipcMain.handle(IPC.PRIVACY_TOGGLE_SHIELD, (_event, domain: string, enabled: boolean) => {
-    privacyEngine?.toggleSiteShield(domain, enabled);
+  ipcMain.handle(IPC.PRIVACY_TOGGLE_SHIELD, (event, domain: string, enabled: boolean) => {
+    assertAuthorizedSender(event, IPC.PRIVACY_TOGGLE_SHIELD);
+    if (typeof domain === 'string' && domain.length <= 256) {
+      privacyEngine?.toggleSiteShield(domain, Boolean(enabled));
+    }
   });
 
   // ─── AI Search & Assistant IPC ──────────────────────────────
-  ipcMain.handle(IPC.AI_SEARCH, async (_event, query: string) => {
-    return searchClient?.search(query);
+  ipcMain.handle(IPC.AI_SEARCH, async (event, query: string) => {
+    assertAuthorizedSender(event, IPC.AI_SEARCH);
+    if (typeof query === 'string' && query.length <= 2048) {
+      return searchClient?.search(query);
+    }
+    return null;
   });
 
-  ipcMain.handle(IPC.AI_SUMMARIZE_PAGE, async (_event, title: string, url: string, content: string) => {
-    const res = await aiClient?.summarizePage(title, url, content);
+  ipcMain.handle(IPC.AI_SUMMARIZE_PAGE, async (event, title: string, url: string, content: string) => {
+    assertAuthorizedSender(event, IPC.AI_SUMMARIZE_PAGE);
+    const activeTab = tabManager?.getActiveTabId();
+    const isPrivate = activeTab ? tabManager.getTabStatus(activeTab) === 'discarded' : false;
+    const res = await aiClient?.summarizePage(String(title || ''), String(url || ''), String(content || ''), {
+      isPrivateTab: isPrivate,
+    });
     return res?.answer || '';
   });
 
-  ipcMain.handle(IPC.AI_EXPLAIN_TEXT, async (_event, text: string, context?: string) => {
-    const res = await aiClient?.explainText(text, context);
+  ipcMain.handle(IPC.AI_EXPLAIN_TEXT, async (event, text: string, context?: string) => {
+    assertAuthorizedSender(event, IPC.AI_EXPLAIN_TEXT);
+    const res = await aiClient?.explainText(String(text || ''), context ? String(context) : undefined);
     return res?.answer || '';
   });
 
-  ipcMain.handle(IPC.AI_ASK_QUESTION, async (_event, question: string, content: string) => {
-    const res = await aiClient?.askPageQuestion(question, content);
+  ipcMain.handle(IPC.AI_ASK_QUESTION, async (event, question: string, content: string) => {
+    assertAuthorizedSender(event, IPC.AI_ASK_QUESTION);
+    const res = await aiClient?.askPageQuestion(String(question || ''), String(content || ''));
     return res?.answer || '';
   });
 
-  ipcMain.handle(IPC.AI_EXTRACT_POINTS, async (_event, content: string) => {
-    const res = await aiClient?.extractKeyPoints(content);
+  ipcMain.handle(IPC.AI_EXTRACT_POINTS, async (event, content: string) => {
+    assertAuthorizedSender(event, IPC.AI_EXTRACT_POINTS);
+    const res = await aiClient?.extractKeyPoints(String(content || ''));
     return res?.answer || '';
   });
 
   // ─── Performance Diagnostics & Benchmark ────────────────────
-  ipcMain.handle(IPC.BENCHMARK_RUN, async () => {
+  ipcMain.handle(IPC.BENCHMARK_RUN, async (event) => {
+    assertAuthorizedSender(event, IPC.BENCHMARK_RUN);
     return BenchmarkSuite.runBenchmark();
   });
 }

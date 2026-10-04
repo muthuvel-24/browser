@@ -92,11 +92,21 @@ export interface MemoryStats {
   activeTabs: number;
   /** Total tabs count */
   totalTabs: number;
-  /** Real measured Process Private Memory (MB) */
+  /** Main browser process private working set (MB) */
+  browserProcessMB: number;
+  /** Backward-compatible alias for browserProcessMB */
   processMemoryMB: number;
-  /** Real total browser suite memory (MB) across all processes */
+  /** Sum of renderer tab processes memory (MB) */
+  renderersMemoryMB: number;
+  /** Total browser process tree memory (MB) */
   totalSuiteMemoryMB: number;
-  /** Current CPU usage percentage */
+  /** Total system physical RAM (MB) */
+  systemTotalMB: number;
+  /** Available free system RAM (MB) */
+  systemFreeMB: number;
+  /** Real estimated memory saved by discarding inactive tabs (MB) */
+  estimatedSavedMB: number;
+  /** Current CPU usage percentage across the browser tree */
   cpuPercent: number;
   /** Current adaptive memory pressure level */
   pressureLevel: 'normal' | 'moderate' | 'high' | 'critical';

@@ -27,6 +27,7 @@ const AD_DOMAINS = new Set([
   'googleadservices.com',
   'www.googleadservices.com',
   'stats.g.doubleclick.net',
+  'doubleclick.net',
   'ad.doubleclick.net',
   'm.doubleclick.net',
   'cm.g.doubleclick.net',
@@ -146,6 +147,35 @@ export class AdBlockEngine {
   /** Set whitelist domains */
   setWhitelist(domains: string[]): void {
     this.whitelist = new Set(domains.map((d) => d.toLowerCase().trim()));
+  }
+
+  /** Check if a domain is whitelisted */
+  isDomainWhitelisted(domain: string): boolean {
+    const clean = domain.toLowerCase().trim();
+    return this.whitelist.has(clean) || Array.from(this.whitelist).some((d) => clean.endsWith('.' + d));
+  }
+
+  /** Check if a host or path matches known ad patterns */
+  matchesAd(host: string, pathAndQuery: string): boolean {
+    if (!this.isEnabled) return false;
+    const cleanHost = host.toLowerCase().trim();
+    if (this.isDomainWhitelisted(cleanHost)) return false;
+
+    const isAdHost = AD_DOMAINS.has(cleanHost) || Array.from(AD_DOMAINS).some((domain) => cleanHost.endsWith('.' + domain));
+    if (isAdHost) return true;
+
+    return AD_PATTERNS.some((pattern) => pattern.test(pathAndQuery));
+  }
+
+  /** Record a blocked request */
+  recordBlocked(webContentsId?: number): void {
+    this.stats.totalBlocked++;
+    this.stats.sessionBlocked++;
+    if (webContentsId !== undefined) {
+      const tabKey = String(webContentsId);
+      this.stats.perTab[tabKey] = (this.stats.perTab[tabKey] ?? 0) + 1;
+    }
+    this.onStatsUpdated?.(this.getStats());
   }
 
   /**

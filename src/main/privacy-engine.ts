@@ -3,14 +3,16 @@
  *
  * Comprehensive network-level privacy and content filtering engine:
  * 1. Filter list rules (domains, URL regex, tracking parameters)
- * 2. Third-party tracker and script detection
- * 3. Third-party cookie blocking
- * 4. Per-site privacy statistics (ads, trackers, third-party requests, cookies)
- * 5. Per-site shield toggling and domain whitelisting
+ * 2. Public Suffix List (PSL) aware domain extraction
+ * 3. Third-party tracker and script detection
+ * 4. Third-party cookie blocking
+ * 5. Per-site privacy statistics (ads, trackers, third-party requests, cookies)
+ * 6. Per-site shield toggling and domain whitelisting
  */
 
-import type { Session, OnBeforeRequestListenerDetails, CallbackResponse } from 'electron';
+import type { Session, OnBeforeRequestListenerDetails } from 'electron';
 import { stripTrackingParams } from './url-utils';
+import { parseDomain, getBaseDomain } from './domain-utils';
 
 export interface SitePrivacyStats {
   domain: string;
@@ -61,16 +63,16 @@ const TRACKING_PATTERNS = [
   /\/youtubei\/v1\/att\/get/i,
   /\/youtubei\/v1\/player\/ad_break/i,
   /\/get_midroll_info/i,
-  /[?&]adformat=/i,
-  /[?&]oad=/i,
-  /\/adserver\//i,
-  /\/adsystem\//i,
   /\/telemetry\//i,
-  /\/tracking\//i,
-  /\/pixel\.png/i,
-  /\/pixel\.gif/i,
   /\/collect\?v=/i,
+  /\/analytics\//i,
+  /\/tracking\//i,
+  /\/pixel\.(png|gif)/i,
   /\/event\?.*type=track/i,
+  /[?&]utm_[a-z]+=/i,
+  /[?&]fbclid=/i,
+  /[?&]gclid=/i,
+  /[?&]msclkid=/i,
 ];
 
 export class PrivacyEngine {
@@ -90,12 +92,30 @@ export class PrivacyEngine {
 
   constructor() {}
 
-  /** Extract base root domain (e.g. 'sub.example.co.uk' -> 'example.co.uk' or 'google.com') */
+  /** Extract PSL-aware base root domain */
   public getBaseDomain(hostname: string): string {
-    if (!hostname) return '';
-    const parts = hostname.toLowerCase().split('.');
-    if (parts.length <= 2) return hostname.toLowerCase();
-    return parts.slice(-2).join('.');
+    return getBaseDomain(hostname);
+  }
+
+  /** Check if a hostname and path match known tracking filters */
+  public matchesTracker(hostname: string, pathAndQuery: string): boolean {
+    if (!this.isEnabled) return false;
+    const cleanHost = hostname.toLowerCase().trim();
+    const base = this.getBaseDomain(cleanHost);
+
+    if (this.whitelist.has(base) || this.whitelist.has(cleanHost)) {
+      return false;
+    }
+
+    const isTrackerHost = TRACKER_DOMAINS.has(cleanHost) || TRACKER_DOMAINS.has(base) ||
+      Array.from(TRACKER_DOMAINS).some((d) => cleanHost.endsWith('.' + d));
+    if (isTrackerHost) return true;
+
+    return TRACKING_PATTERNS.some((p) => p.test(pathAndQuery));
+  }
+
+  public isBlockThirdPartyCookiesEnabled(): boolean {
+    return this.isEnabled && this.blockThirdPartyCookies;
   }
 
   /** Get or create stats record for a specific site domain */
@@ -116,6 +136,46 @@ export class PrivacyEngine {
     return { ...record };
   }
 
+  /** Record ad blocked for site */
+  public recordAdBlocked(domain: string): void {
+    const base = this.getBaseDomain(domain);
+    const site = this.getSiteStats(base);
+    site.adsBlocked++;
+    this.siteStats.set(base, site);
+    this.globalStats.totalAdsBlocked++;
+    this.globalStats.sessionBlocked++;
+    this.onStatsChanged?.(this.getGlobalStats());
+  }
+
+  /** Record tracker blocked for site */
+  public recordTrackerBlocked(domain: string): void {
+    const base = this.getBaseDomain(domain);
+    const site = this.getSiteStats(base);
+    site.trackersBlocked++;
+    this.siteStats.set(base, site);
+    this.globalStats.totalTrackersBlocked++;
+    this.globalStats.sessionBlocked++;
+    this.onStatsChanged?.(this.getGlobalStats());
+  }
+
+  /** Record third-party request blocked for site */
+  public recordThirdPartyBlocked(domain: string): void {
+    const base = this.getBaseDomain(domain);
+    const site = this.getSiteStats(base);
+    site.thirdPartyBlocked++;
+    this.siteStats.set(base, site);
+  }
+
+  /** Record third-party cookie blocked for site */
+  public recordCookieBlocked(domain: string): void {
+    const base = this.getBaseDomain(domain);
+    const site = this.getSiteStats(base);
+    site.cookiesBlocked++;
+    this.siteStats.set(base, site);
+    this.globalStats.totalCookiesBlocked++;
+    this.onStatsChanged?.(this.getGlobalStats());
+  }
+
   /** Toggle shield on/off for a site */
   public toggleSiteShield(domain: string, enabled: boolean): void {
     const base = this.getBaseDomain(domain);
@@ -127,6 +187,7 @@ export class PrivacyEngine {
     const record = this.siteStats.get(base);
     if (record) {
       record.shieldEnabled = enabled;
+      this.siteStats.set(base, record);
     }
   }
 
@@ -144,133 +205,5 @@ export class PrivacyEngine {
 
   public getGlobalStats(): GlobalPrivacyStats {
     return { ...this.globalStats };
-  }
-
-  /**
-   * Attach request and cookie interceptors to an Electron session.
-   */
-  public attachToSession(targetSession: Session): void {
-    // 1. Request filtering
-    targetSession.webRequest.onBeforeRequest(
-      { urls: ['*://*/*'] },
-      (details, callback) => {
-        if (!this.isEnabled) {
-          callback({});
-          return;
-        }
-
-        const urlStr = details.url;
-
-        // Never cancel main frame navigations (user opened website)
-        if (details.resourceType === 'mainFrame') {
-          const cleanedUrl = stripTrackingParams(urlStr);
-          if (cleanedUrl !== urlStr) {
-            callback({ redirectURL: cleanedUrl });
-            return;
-          }
-          callback({});
-          return;
-        }
-
-        try {
-          const requestUrl = new URL(urlStr);
-          const requestHost = requestUrl.hostname.toLowerCase();
-          const requestBase = this.getBaseDomain(requestHost);
-
-          // Get top-level domain from details.initiator or referrer
-          let topHost = '';
-          const initiator = (details as unknown as { initiator?: string }).initiator;
-          if (initiator) {
-            topHost = new URL(initiator).hostname.toLowerCase();
-          } else if (details.referrer) {
-            topHost = new URL(details.referrer).hostname.toLowerCase();
-          }
-          const topBase = this.getBaseDomain(topHost);
-
-          // If top site is whitelisted, allow all
-          if (topBase && this.whitelist.has(topBase)) {
-            callback({});
-            return;
-          }
-
-          const siteStat = this.getSiteStats(topBase || requestBase);
-
-          // Check if it's an ad
-          const isAd = AD_DOMAINS.has(requestHost) || AD_DOMAINS.has(requestBase) ||
-            Array.from(AD_DOMAINS).some((d) => requestHost.endsWith('.' + d));
-
-          // Check if it's a tracker
-          const isTracker = TRACKER_DOMAINS.has(requestHost) || TRACKER_DOMAINS.has(requestBase) ||
-            Array.from(TRACKER_DOMAINS).some((d) => requestHost.endsWith('.' + d)) ||
-            TRACKING_PATTERNS.some((p) => p.test(requestUrl.pathname + requestUrl.search));
-
-          // Check if it's a third-party request
-          const isThirdParty = topBase && requestBase && (topBase !== requestBase);
-
-          if (isAd || isTracker) {
-            if (isAd) {
-              this.globalStats.totalAdsBlocked++;
-              siteStat.adsBlocked++;
-            }
-            if (isTracker) {
-              this.globalStats.totalTrackersBlocked++;
-              siteStat.trackersBlocked++;
-            }
-            if (isThirdParty) {
-              siteStat.thirdPartyBlocked++;
-            }
-
-            this.globalStats.sessionBlocked++;
-            this.siteStats.set(siteStat.domain, siteStat);
-            this.onStatsChanged?.(this.getGlobalStats());
-
-            callback({ cancel: true });
-            return;
-          }
-        } catch {
-          // ignore parsing error
-        }
-
-        callback({});
-      }
-    );
-
-    // 2. Third-party cookie blocking
-    targetSession.webRequest.onHeadersReceived((details, callback) => {
-      const responseHeaders = { ...(details.responseHeaders || {}) };
-
-      if (this.isEnabled && this.blockThirdPartyCookies) {
-        try {
-          const requestHost = new URL(details.url).hostname.toLowerCase();
-          const requestBase = this.getBaseDomain(requestHost);
-
-          let topHost = '';
-          const initiator = (details as unknown as { initiator?: string }).initiator;
-          if (initiator) {
-            topHost = new URL(initiator).hostname.toLowerCase();
-          }
-          const topBase = this.getBaseDomain(topHost);
-
-          // If third-party and has Set-Cookie header, strip it
-          if (topBase && requestBase && topBase !== requestBase) {
-            if (responseHeaders['set-cookie'] || responseHeaders['Set-Cookie']) {
-              delete responseHeaders['set-cookie'];
-              delete responseHeaders['Set-Cookie'];
-              this.globalStats.totalCookiesBlocked++;
-              const siteStat = this.getSiteStats(topBase);
-              siteStat.cookiesBlocked++;
-              this.siteStats.set(siteStat.domain, siteStat);
-              this.onStatsChanged?.(this.getGlobalStats());
-            }
-          }
-        } catch {
-          // ignore
-        }
-      }
-
-      callback({ responseHeaders });
-    });
-
-    console.log('[PrivacyEngine] Network ad/tracker/cookie filters active on session');
   }
 }

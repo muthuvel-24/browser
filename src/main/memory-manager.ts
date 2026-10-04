@@ -51,8 +51,13 @@ export class MemoryManager {
     discardedTabs: 0,
     activeTabs: 1,
     totalTabs: 1,
+    browserProcessMB: 0,
     processMemoryMB: 0,
+    renderersMemoryMB: 0,
     totalSuiteMemoryMB: 0,
+    systemTotalMB: 0,
+    systemFreeMB: 0,
+    estimatedSavedMB: 0,
     cpuPercent: 0,
     pressureLevel: 'normal',
   };
@@ -83,35 +88,46 @@ export class MemoryManager {
    */
   async evaluate(): Promise<void> {
     try {
-      // 1. Gather real process and suite memory from Electron APIs
+      // 1. Gather real process, renderer, and system metrics
+      const os = await import('node:os');
       const processMem = await process.getProcessMemoryInfo();
       const privateMemMB = Math.round(processMem.private / 1024);
 
       let totalSuiteKB = 0;
+      let renderersKB = 0;
       let totalCpu = 0;
       const metrics = app.getAppMetrics();
 
       for (const m of metrics) {
         totalSuiteKB += m.memory.workingSetSize;
         totalCpu += m.cpu.percentCPUUsage;
+        if (m.type === 'Tab') {
+          renderersKB += m.memory.workingSetSize;
+        }
       }
-      const totalSuiteMB = Math.round(totalSuiteKB / 1024);
-      const roundedCpu = Math.min(100, Math.round(totalCpu));
 
-      // 2. Determine real memory pressure level
+      const totalSuiteMB = Math.round(totalSuiteKB / 1024);
+      const renderersMB = Math.round(renderersKB / 1024);
+      const roundedCpu = Math.min(100, Math.round(totalCpu));
+      const systemTotalMB = Math.round(os.totalmem() / (1024 * 1024));
+      const systemFreeMB = Math.round(os.freemem() / (1024 * 1024));
+
+      // 2. Determine real memory pressure level based on system memory availability
       let pressure: MemoryStats['pressureLevel'] = 'normal';
       let sleepThresholdMs = this.callbacks.sleepThresholdMs ?? 25 * 60 * 1000;
       let discardThresholdMs = this.callbacks.discardThresholdMs ?? 60 * 60 * 1000;
 
-      if (totalSuiteMB >= 1800) {
+      const freeMemoryPercent = (systemFreeMB / Math.max(1, systemTotalMB)) * 100;
+
+      if (totalSuiteMB >= 2000 || freeMemoryPercent < 8) {
         pressure = 'critical';
         sleepThresholdMs = 2 * 60 * 1000;
         discardThresholdMs = 8 * 60 * 1000;
-      } else if (totalSuiteMB >= 1200) {
+      } else if (totalSuiteMB >= 1400 || freeMemoryPercent < 15) {
         pressure = 'high';
         sleepThresholdMs = 5 * 60 * 1000;
         discardThresholdMs = 15 * 60 * 1000;
-      } else if (totalSuiteMB >= 700) {
+      } else if (totalSuiteMB >= 800 || freeMemoryPercent < 25) {
         pressure = 'moderate';
         sleepThresholdMs = 10 * 60 * 1000;
         discardThresholdMs = 30 * 60 * 1000;
@@ -162,13 +178,22 @@ export class MemoryManager {
         }
       }
 
+      // Real estimated savings: average renderer memory footprint times discarded tabs
+      const avgTabMB = activeCount > 0 ? Math.round(renderersMB / activeCount) : 95;
+      const estimatedSaved = discardedCount * Math.max(60, avgTabMB);
+
       this.lastStats = {
         sleepingTabs: sleepingCount,
         discardedTabs: discardedCount,
         activeTabs: activeCount,
         totalTabs: activeCount + sleepingCount + discardedCount,
+        browserProcessMB: privateMemMB,
         processMemoryMB: privateMemMB,
+        renderersMemoryMB: renderersMB,
         totalSuiteMemoryMB: totalSuiteMB,
+        systemTotalMB,
+        systemFreeMB,
+        estimatedSavedMB: estimatedSaved,
         cpuPercent: roundedCpu,
         pressureLevel: pressure,
       };

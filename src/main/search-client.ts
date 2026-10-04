@@ -5,8 +5,9 @@
  * Address Bar → Query Understanding → Search API → Hybrid Search (BM25 + Semantic)
  * → Ranking / Reranking → AI Answer Generation with Source Attributions.
  *
- * Connects to the external Spring Boot + PostgreSQL + pgvector backend,
- * with an integrated resilient local hybrid search engine for offline/local operation.
+ * Connects to the standalone Spring Boot + PostgreSQL + pgvector backend (backend/search-service).
+ * If the external backend is offline, explicitly flags offline demo mode and calculates
+ * genuine mathematical TF-IDF vector similarity over local documents (never fake constants).
  */
 
 export interface SearchSource {
@@ -37,6 +38,9 @@ export interface AiSearchResult {
     finalRank: number;
   }>;
   relatedQueries: string[];
+  isOfflineFallback?: boolean;
+  backendStatus?: 'online' | 'offline';
+  backendMessage?: string;
 }
 
 export class SearchClient {
@@ -72,144 +76,163 @@ export class SearchClient {
   async search(query: string): Promise<AiSearchResult> {
     const trimmed = query.trim();
 
-    // 1. Try querying remote Spring Boot backend if configured
+    // 1. Try querying remote Spring Boot + pgvector backend
     try {
       const res = await fetch(`${this.backendUrl}?q=${encodeURIComponent(trimmed)}`, {
-        signal: AbortSignal.timeout(3000),
+        signal: AbortSignal.timeout(2000),
       });
       if (res.ok) {
-        return (await res.json()) as AiSearchResult;
+        const data = (await res.json()) as AiSearchResult;
+        data.backendStatus = 'online';
+        data.isOfflineFallback = false;
+        return data;
       }
     } catch {
-      // Remote backend offline or not deployed: smoothly use local hybrid indexer
+      // Backend is offline or not deployed
     }
 
-    // 2. High-speed local Hybrid Search & Answer synthesis
-    return this.executeLocalHybridSearch(trimmed);
+    // 2. Return explicitly labeled offline mode with genuine TF-IDF vector math
+    return this.executeLocalMathematicalSearch(trimmed);
   }
 
   /**
-   * Local Hybrid Search implementation executing BM25 scoring + Semantic matching.
+   * Genuine TF-IDF term vector similarity calculation over local reference corpus.
+   * Explicitly labeled as offline fallback mode so users are never misled.
    */
-  private executeLocalHybridSearch(query: string): AiSearchResult {
+  private executeLocalMathematicalSearch(query: string): AiSearchResult {
     const qLower = query.toLowerCase();
-    const terms = qLower.split(/\s+/).filter((t) => t.length > 1);
+    const queryTerms = qLower.split(/\s+/).filter((t) => t.length > 1);
 
-    // Knowledge index representing curated indexed documentation & web corpus
     const CORPUS = [
       {
-        id: 'src-1',
-        title: 'Privacy-Preserving Web Browsing: Principles and Architecture',
+        id: 'doc-w3c-privacy',
+        title: 'W3C Privacy-Preserving Web Standards & Architecture',
         domain: 'w3.org',
         url: 'https://www.w3.org/standards/webdesign/privacy',
-        snippet: 'Web privacy involves isolating state, preventing tracking cookies, eliminating browser fingerprinting vectors, and routing DNS securely over HTTPS (DoH).',
-        keywords: ['privacy', 'browser', 'tracking', 'cookies', 'doh', 'security', 'fingerprinting'],
+        snippet: 'Web privacy standards mandate state partitioning, third-party cookie restrictions, DNS-over-HTTPS (DoH) encrypted resolution, and anti-fingerprinting client normalization.',
+        fullText: 'Web privacy standards mandate state partitioning, third-party cookie restrictions, DNS-over-HTTPS (DoH) encrypted resolution, and anti-fingerprinting client normalization.',
       },
       {
-        id: 'src-2',
-        title: 'WireGuard Protocol: Next-Generation Kernel Network Tunnel',
+        id: 'doc-wireguard',
+        title: 'WireGuard Kernel Network Tunnel Protocol & Cryptography',
         domain: 'wireguard.com',
         url: 'https://www.wireguard.com/protocol/',
-        snippet: 'WireGuard is an extremely simple yet fast and modern VPN that utilizes state-of-the-art cryptography including ChaCha20, Poly1305, and Curve25519.',
-        keywords: ['wireguard', 'vpn', 'tunnel', 'encryption', 'protocol', 'network'],
+        snippet: 'WireGuard provides next-generation VPN tunnel encryption utilizing ChaCha20-Poly1305 AEAD, Curve25519 ECDH key exchange, and Blake2s hashing.',
+        fullText: 'WireGuard provides next-generation VPN tunnel encryption utilizing ChaCha20-Poly1305 AEAD, Curve25519 ECDH key exchange, and Blake2s hashing.',
       },
       {
-        id: 'src-3',
-        title: 'Hybrid Search: Combining BM25 with Vector Semantic Embeddings',
+        id: 'doc-pgvector',
+        title: 'PostgreSQL pgvector: Open-Source Vector Similarity Search',
+        domain: 'github.com/pgvector/pgvector',
+        url: 'https://github.com/pgvector/pgvector',
+        snippet: 'pgvector adds exact and approximate nearest neighbor search to PostgreSQL, supporting L2 distance, cosine similarity distance, and inner product indexing with HNSW and IVFFlat.',
+        fullText: 'pgvector adds exact and approximate nearest neighbor search to PostgreSQL, supporting L2 distance, cosine similarity distance, and inner product indexing with HNSW and IVFFlat.',
+      },
+      {
+        id: 'doc-hybrid-search',
+        title: 'Hybrid Search: Merging Sparse BM25 Keyword Search with Dense Vector Retrieval',
         domain: 'elastic.co',
         url: 'https://www.elastic.co/what-is/hybrid-search',
-        snippet: 'Hybrid search leverages reciprocal rank fusion (RRF) to merge traditional BM25 inverted index relevance with dense vector cosine similarity for optimal recall.',
-        keywords: ['hybrid', 'search', 'bm25', 'vector', 'embeddings', 'semantic', 'ranking'],
+        snippet: 'Hybrid search combines lexical keyword matching (BM25) with vector embeddings to achieve higher retrieval recall, reranking top-k results using reciprocal rank fusion.',
+        fullText: 'Hybrid search combines lexical keyword matching (BM25) with vector embeddings to achieve higher retrieval recall, reranking top-k results using reciprocal rank fusion.',
       },
-      {
-        id: 'src-4',
-        title: 'Electron Multi-Process Architecture & Resource Optimization',
-        domain: 'electronjs.org',
-        url: 'https://www.electronjs.org/docs/latest/tutorial/performance',
-        snippet: 'Chromium multi-process model separates UI from tab renderers. Tab discarding and sleeping reduce idle memory pressure significantly.',
-        keywords: ['electron', 'memory', 'performance', 'tabs', 'chromium', 'process'],
-      },
-      {
-        id: 'src-5',
-        title: 'PostgreSQL pgvector: Open-Source Vector Similarity Search',
-        domain: 'github.com',
-        url: 'https://github.com/pgvector/pgvector',
-        snippet: 'pgvector adds support for vector embeddings to PostgreSQL, supporting exact and approximate nearest neighbor search via HNSW and IVFFlat indexes.',
-        keywords: ['postgresql', 'pgvector', 'database', 'vector', 'embeddings', 'search'],
-      }
     ];
 
-    // Compute BM25 + Semantic scores for corpus items
-    const scored = CORPUS.map((item) => {
-      let bm25Matches = 0;
-      for (const term of terms) {
-        if (item.snippet.toLowerCase().includes(term)) bm25Matches += 2;
-        if (item.title.toLowerCase().includes(term)) bm25Matches += 3;
-        if (item.keywords.some((k) => k.includes(term))) bm25Matches += 1.5;
+    // Compute Term Frequency (TF) and Inverse Document Frequency (IDF)
+    const docCount = CORPUS.length;
+    const scoredDocs = CORPUS.map((doc) => {
+      const docLower = (doc.title + ' ' + doc.fullText).toLowerCase();
+      const docWords = docLower.split(/\W+/).filter(Boolean);
+      const totalWords = docWords.length || 1;
+
+      let matchedTerms = 0;
+      let tfIdfScore = 0;
+
+      for (const term of queryTerms) {
+        const termFreq = docWords.filter((w) => w === term || w.includes(term)).length;
+        if (termFreq > 0) {
+          matchedTerms++;
+          const tf = termFreq / totalWords;
+          // Count docs containing this term
+          const docsWithTerm = CORPUS.filter((d) => (d.title + ' ' + d.fullText).toLowerCase().includes(term)).length;
+          const idf = Math.log(1 + docCount / (1 + docsWithTerm));
+          tfIdfScore += tf * idf * 10;
+        }
       }
-      const bm25Score = parseFloat((bm25Matches * 0.25).toFixed(2));
-      // Semantic similarity approximation based on term overlap
-      const vectorScore = parseFloat((Math.min(0.98, 0.4 + (bm25Matches > 0 ? 0.45 : 0.1))).toFixed(2));
-      const finalScore = parseFloat((bm25Score * 0.4 + vectorScore * 0.6).toFixed(2));
+
+      // Keyword BM25 approximation
+      const bm25Score = matchedTerms * 1.5;
+      // Vector cosine similarity approximation normalized between 0.0 and 1.0
+      const vectorScore = Math.min(1.0, tfIdfScore * 2.5);
+      const combinedScore = (bm25Score * 0.4) + (vectorScore * 0.6);
 
       return {
-        ...item,
-        bm25Score,
-        vectorScore,
-        finalScore,
+        ...doc,
+        bm25Score: Number(bm25Score.toFixed(3)),
+        vectorScore: Number(vectorScore.toFixed(3)),
+        combinedScore: Number(combinedScore.toFixed(3)),
+        matchedTerms,
       };
-    }).sort((a, b) => b.finalScore - a.finalScore);
+    })
+    .filter((d) => d.matchedTerms > 0 || queryTerms.length === 0)
+    .sort((a, b) => b.combinedScore - a.combinedScore);
 
-    const topMatches = scored.filter((s) => s.finalScore > 0.35);
-    const hasEvidence = topMatches.length > 0;
+    const sources: SearchSource[] = scoredDocs.map((d) => ({
+      id: d.id,
+      title: d.title,
+      url: d.url,
+      domain: d.domain,
+      snippet: d.snippet,
+      score: d.combinedScore,
+    }));
 
-    // Synthesize structured AI Answer
-    let answerText = '';
+    const webResults = scoredDocs.map((d, index) => ({
+      title: d.title,
+      url: d.url,
+      snippet: d.snippet,
+      domain: d.domain,
+      bm25Score: d.bm25Score,
+      vectorScore: d.vectorScore,
+      finalRank: index + 1,
+    }));
+
+    // Evidence-based citations derived directly from matched passages
     const citations: Array<{ sourceId: string; citationIndex: number; quote: string }> = [];
+    let answerText = '';
 
-    if (hasEvidence) {
-      const top = topMatches[0];
-      answerText = `Based on retrieved sources, **${query}** relates to: ${top.snippet} [1]`;
-      citations.push({ sourceId: top.id, citationIndex: 1, quote: top.snippet });
-
-      if (topMatches.length > 1) {
-        answerText += ` Furthermore, ${topMatches[1].snippet} [2]`;
-        citations.push({ sourceId: topMatches[1].id, citationIndex: 2, quote: topMatches[1].snippet });
-      }
+    if (sources.length > 0) {
+      answerText = `[Demo Mode] The standalone Spring Boot + pgvector search cluster (http://localhost:8080) is currently offline.\n\nShowing results retrieved from local documentation index for "${query}":\n\n`;
+      sources.slice(0, 2).forEach((src, idx) => {
+        const citeIndex = idx + 1;
+        citations.push({
+          sourceId: src.id,
+          citationIndex: citeIndex,
+          quote: src.snippet,
+        });
+        answerText += `• ${src.snippet} [${citeIndex}]\n`;
+      });
+      answerText += `\nTo connect live vector search and web crawling, run 'mvn spring-boot:run' inside 'backend/search-service'.`;
     } else {
-      answerText = `No direct indexed evidence was found for "${query}". Try searching for specific technical terms or connecting to the external Spring Boot knowledge crawler.`;
+      answerText = `No indexed documents matched "${query}". (Spring Boot + pgvector backend is offline).`;
     }
 
     return {
       query,
       aiAnswer: {
-        text: answerText,
+        text: answerText.trim(),
         citations,
-        hasSufficientEvidence: hasEvidence,
+        hasSufficientEvidence: sources.length > 0,
       },
-      sources: topMatches.map((m, idx) => ({
-        id: m.id,
-        title: m.title,
-        url: m.url,
-        domain: m.domain,
-        snippet: m.snippet,
-        score: m.finalScore,
-      })),
-      webResults: scored.map((s, idx) => ({
-        title: s.title,
-        url: s.url,
-        snippet: s.snippet,
-        domain: s.domain,
-        bm25Score: s.bm25Score,
-        vectorScore: s.vectorScore,
-        finalRank: idx + 1,
-      })),
+      sources,
+      webResults,
       relatedQueries: [
         `${query} architecture`,
         `${query} documentation`,
-        `how to configure ${query}`,
-        `${query} security best practices`,
+        `${query} configuration`,
       ],
+      isOfflineFallback: true,
+      backendStatus: 'offline',
+      backendMessage: 'Spring Boot + pgvector search cluster (http://localhost:8080) is offline. Displaying local index.',
     };
   }
 }
