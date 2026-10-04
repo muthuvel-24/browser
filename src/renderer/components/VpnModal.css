@@ -226,10 +226,6 @@ input:checked + .slider:before {
   color: #00E676;
 }
 
-.vpn-ip-status--direct {
-  color: #8ab4f8;
-}
-
 .vpn-security-guarantee {
   font-size: 11px;
   color: var(--text-secondary);
@@ -238,6 +234,59 @@ input:checked + .slider:before {
   border: 1px solid rgba(138, 180, 248, 0.2);
   padding: 8px 10px;
   border-radius: var(--radius-sm);
+}
+
+.vpn-mode-tabs {
+  display: flex;
+  background: #28292c;
+  border-radius: 6px;
+  padding: 3px;
+  gap: 4px;
+}
+
+.vpn-mode-tab {
+  flex: 1;
+  background: transparent;
+  border: none;
+  color: #9aa0a6;
+  font-size: 12px;
+  font-weight: 500;
+  padding: 6px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.vpn-mode-tab--active {
+  background: #3c4043;
+  color: #8ab4f8;
+}
+
+.vpn-toggle-sub {
+  font-size: 11px;
+  color: #9aa0a6;
+  margin-top: 2px;
+}
+
+.vpn-input {
+  background: #28292c;
+  border: 1px solid #3c4043;
+  color: #e8eaed;
+  font-size: 12px;
+  padding: 8px 10px;
+  border-radius: 4px;
+  outline: none;
+}
+
+.vpn-input:focus {
+  border-color: #8ab4f8;
+}
+
+.vpn-proxy-note {
+  font-size: 11px;
+  color: #9aa0a6;
+  line-height: 1.4;
+  margin-top: 4px;
 }
 
 .vpn-message {

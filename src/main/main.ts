@@ -18,6 +18,12 @@ import { MemoryManager } from './memory-manager';
 import { AdBlockEngine } from './adblock-engine';
 import { ProxyManager } from './proxy-manager';
 import { SettingsStore } from './settings-store';
+import { PermissionManager } from './permission-manager';
+import { PrivacyEngine } from './privacy-engine';
+import { VpnController } from './vpn-controller';
+import { SearchClient } from './search-client';
+import { AiClient } from './ai-client';
+import { BenchmarkSuite } from './benchmark';
 import { normalizeUrl, isAuthOrPopup } from './url-utils';
 import { IPC } from '../shared/ipc-channels';
 import type { VpnRegion } from './types';
@@ -56,6 +62,11 @@ let memoryManager: MemoryManager;
 let adBlockEngine: AdBlockEngine;
 let proxyManager: ProxyManager;
 let settingsStore: SettingsStore;
+let permissionManager: PermissionManager;
+let privacyEngine: PrivacyEngine;
+let vpnController: VpnController;
+let searchClient: SearchClient;
+let aiClient: AiClient;
 const configuredTabSessions = new WeakSet<Session>();
 
 // ─── Chrome-compatible User-Agent & Client Hints ────────────────
@@ -89,26 +100,21 @@ function configureChromeHeaders(targetSession: Session): void {
 const SAFE_PERMISSIONS = new Set(['fullscreen', 'clipboard-read', 'clipboard-sanitized-write']);
 
 /**
- * Secure Permission Request Handler.
- * Restricts dangerous permissions (camera, microphone, geolocation) by default,
- * allowing only explicitly whitelisted safe permissions.
+ * Secure Permission Request Handler delegating to PermissionManager.
  */
 function setupSecurePermissions(targetSession: Session): void {
-  targetSession.setPermissionRequestHandler((_webContents, permission, callback) => {
-    // Geolocation is allowed so spoofed VPN coordinates (US / EU / Asia) are delivered
-    if (permission === 'geolocation') {
-      callback(true);
-      return;
+  targetSession.setPermissionRequestHandler((webContents, permission, callback, details) => {
+    if (permissionManager) {
+      permissionManager.handlePermissionRequest(webContents, permission, callback, details);
+    } else {
+      callback(SAFE_PERMISSIONS.has(permission));
     }
-    const isAllowed = SAFE_PERMISSIONS.has(permission);
-    if (!isAllowed) {
-      console.warn(`[Security] Restricted unprompted permission request: ${permission}`);
-    }
-    callback(isAllowed);
   });
 
-  targetSession.setPermissionCheckHandler((_webContents, permission) => {
-    if (permission === 'geolocation') return true;
+  targetSession.setPermissionCheckHandler((webContents, permission, requestingOrigin) => {
+    if (permissionManager) {
+      return permissionManager.handlePermissionCheck(webContents, permission, requestingOrigin);
+    }
     return SAFE_PERMISSIONS.has(permission);
   });
 }
@@ -178,6 +184,38 @@ async function createMainWindow(): Promise<void> {
   setupTabSecurityHeaders(tabSession);
   setupTabSecurityHeaders(session.defaultSession);
 
+  // ─── Permission Manager ─────────────────────────────────────
+  permissionManager = new PermissionManager();
+  permissionManager.onPromptRequested = (prompt) => {
+    if (toolbarView && !toolbarView.webContents.isDestroyed()) {
+      toolbarView.webContents.send(IPC.PERMISSION_REQUEST, prompt);
+    }
+  };
+
+  // ─── Privacy Engine ─────────────────────────────────────────
+  privacyEngine = new PrivacyEngine();
+  privacyEngine.attachToSession(tabSession);
+  privacyEngine.attachToSession(session.defaultSession);
+  privacyEngine.onStatsChanged = (stats) => {
+    if (toolbarView && !toolbarView.webContents.isDestroyed()) {
+      toolbarView.webContents.send(IPC.PRIVACY_STATS_UPDATED, stats);
+    }
+  };
+
+  // ─── VPN & Tunnel Controller ────────────────────────────────
+  vpnController = new VpnController();
+  vpnController.registerSession(tabSession);
+  vpnController.registerSession(session.defaultSession);
+  vpnController.on('status-changed', (status) => {
+    if (toolbarView && !toolbarView.webContents.isDestroyed()) {
+      toolbarView.webContents.send(IPC.VPN_STATUS_CHANGED, status);
+    }
+  });
+
+  // ─── AI & Search Clients ────────────────────────────────────
+  searchClient = new SearchClient();
+  aiClient = new AiClient();
+
   // ─── Proxy Manager ───────────────────────────────────────────
   proxyManager = new ProxyManager();
   proxyManager.onStatusChanged = (status) => {
@@ -209,6 +247,8 @@ async function createMainWindow(): Promise<void> {
     }
     adBlockEngine.setEnabled(settings.adBlockerEnabled);
     adBlockEngine.setWhitelist(settings.adBlockerWhitelist);
+    privacyEngine.setEnabled(settings.adBlockerEnabled);
+    privacyEngine.setWhitelist(settings.adBlockerWhitelist);
   };
 
   // Auto-connect VPN if setting enabled
@@ -222,7 +262,9 @@ async function createMainWindow(): Promise<void> {
     targetSession.setUserAgent(CHROME_UA);
     configureChromeHeaders(targetSession);
     setupSecurePermissions(targetSession);
+    privacyEngine.attachToSession(targetSession);
     adBlockEngine.enableOnSession(targetSession);
+    vpnController.registerSession(targetSession);
     void proxyManager.applyToSession(targetSession).catch(() => {});
   };
   configureTabSession(tabSession);
@@ -236,10 +278,10 @@ async function createMainWindow(): Promise<void> {
     }
   };
 
-  // ─── Memory Manager (relaxed — 30 min sleep, 60 min discard) ─
+  // ─── Memory Manager (Adaptive Process Metrics) ───────────────
   memoryManager = new MemoryManager({
-    sleepThresholdMs: 30 * 60 * 1000,   // 30 minutes
-    discardThresholdMs: 60 * 60 * 1000,  // 60 minutes
+    sleepThresholdMs: 25 * 60 * 1000,
+    discardThresholdMs: 60 * 60 * 1000,
     getBackgroundTabIds: () => tabManager.getBackgroundTabIds(),
     getLastActiveTime: (tabId) => tabManager.getLastActiveTime(tabId),
     getTabStatus: (tabId) => tabManager.getTabStatus(tabId),
@@ -254,8 +296,15 @@ async function createMainWindow(): Promise<void> {
   memoryManager.start();
 
   // ─── Initial Tabs ─────────────────────────────────────────────
-  // Start with Google (New Tab) as the only active tab
-  tabManager.createTab('https://www.google.com');
+  const startup = settingsStore.get('startupBehavior');
+  if (startup === 'lastSession') {
+    const restored = tabManager.restoreSession();
+    if (!restored) tabManager.createTab('https://www.google.com');
+  } else if (startup === 'homepage') {
+    tabManager.createTab(settingsStore.get('homepage') || 'https://www.google.com');
+  } else {
+    tabManager.createTab('https://www.google.com');
+  }
 
   // ─── Resize Handler ──────────────────────────────────────────
   mainWindow.on('resize', () => {
@@ -504,6 +553,71 @@ function registerIpcHandlers(): void {
 
   ipcMain.handle(IPC.CLEAR_BROWSING_DATA, async (_event, options: ClearDataOptions) => {
     await handleClearBrowsingData(options);
+  });
+
+  // ─── Tab Operations ─────────────────────────────────────────
+  ipcMain.handle(IPC.TAB_DUPLICATE, (_event, tabId: string) => {
+    return tabManager?.duplicateTab(tabId);
+  });
+
+  ipcMain.handle(IPC.TAB_RESTORE_CLOSED, () => {
+    return tabManager?.restoreClosedTab();
+  });
+
+  // ─── Permission Manager IPC ─────────────────────────────────
+  ipcMain.handle(IPC.PERMISSION_RESPONSE, (_event, promptId: string, decision: 'allow' | 'block', remember: boolean) => {
+    return permissionManager?.resolvePrompt(promptId, decision, remember) ?? false;
+  });
+
+  ipcMain.handle(IPC.PERMISSION_GET_ALL, () => {
+    return permissionManager?.getAllPermissions() ?? {};
+  });
+
+  ipcMain.handle(IPC.PERMISSION_SET, (_event, origin: string, perm: any, decision: any) => {
+    permissionManager?.setSitePermission(origin, perm, decision);
+  });
+
+  ipcMain.handle(IPC.PERMISSION_RESET, (_event, origin: string) => {
+    permissionManager?.resetSitePermissions(origin);
+  });
+
+  // ─── Privacy Engine IPC ─────────────────────────────────────
+  ipcMain.handle(IPC.PRIVACY_GET_SITE_STATS, (_event, domain: string) => {
+    return privacyEngine?.getSiteStats(domain) ?? { domain, adsBlocked: 0, trackersBlocked: 0, thirdPartyBlocked: 0, cookiesBlocked: 0, shieldEnabled: true };
+  });
+
+  ipcMain.handle(IPC.PRIVACY_TOGGLE_SHIELD, (_event, domain: string, enabled: boolean) => {
+    privacyEngine?.toggleSiteShield(domain, enabled);
+  });
+
+  // ─── AI Search & Assistant IPC ──────────────────────────────
+  ipcMain.handle(IPC.AI_SEARCH, async (_event, query: string) => {
+    return searchClient?.search(query);
+  });
+
+  ipcMain.handle(IPC.AI_SUMMARIZE_PAGE, async (_event, title: string, url: string, content: string) => {
+    const res = await aiClient?.summarizePage(title, url, content);
+    return res?.answer || '';
+  });
+
+  ipcMain.handle(IPC.AI_EXPLAIN_TEXT, async (_event, text: string, context?: string) => {
+    const res = await aiClient?.explainText(text, context);
+    return res?.answer || '';
+  });
+
+  ipcMain.handle(IPC.AI_ASK_QUESTION, async (_event, question: string, content: string) => {
+    const res = await aiClient?.askPageQuestion(question, content);
+    return res?.answer || '';
+  });
+
+  ipcMain.handle(IPC.AI_EXTRACT_POINTS, async (_event, content: string) => {
+    const res = await aiClient?.extractKeyPoints(content);
+    return res?.answer || '';
+  });
+
+  // ─── Performance Diagnostics & Benchmark ────────────────────
+  ipcMain.handle(IPC.BENCHMARK_RUN, async () => {
+    return BenchmarkSuite.runBenchmark();
   });
 }
 

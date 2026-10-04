@@ -13,9 +13,10 @@
  * - Scroll position capture and restoration
  */
 
-import { WebContentsView, session, Menu, type BaseWindow } from 'electron';
+import { app, WebContentsView, session, Menu, type BaseWindow } from 'electron';
 import { randomUUID } from 'node:crypto';
 import path from 'path';
+import fs from 'fs';
 import type { TabRecord, TabInfo, TabStatus, FindMatchInfo } from './types';
 import { getSpeedDialHtml } from './speeddial-html';
 import { stripTrackingParams, isAuthOrPopup } from './url-utils';
@@ -66,6 +67,9 @@ export class TabManager {
 
   /** Reference to the toolbar WebContentsView (for z-order management) */
   private toolbarView: WebContentsView | null = null;
+
+  /** Closed tabs stack for reopening (Ctrl+Shift+T) */
+  private closedTabs: Array<{ url: string; title: string; isPrivate: boolean }> = [];
 
   constructor(
     window: BaseWindow,
@@ -245,6 +249,18 @@ export class TabManager {
       }
     }
 
+    // Save to closed tabs stack (if non-empty URL)
+    if (closingRecord && closingRecord.url && closingRecord.url !== 'speeddial' && closingRecord.url !== SPEED_DIAL_DATA_URL) {
+      this.closedTabs.push({
+        url: closingRecord.url,
+        title: closingRecord.title,
+        isPrivate: closingRecord.isPrivate,
+      });
+      if (this.closedTabs.length > 30) {
+        this.closedTabs.shift();
+      }
+    }
+
     this.views.delete(tabId);
     this.tabs.delete(tabId);
 
@@ -266,7 +282,65 @@ export class TabManager {
     }
 
     this.broadcastTabsUpdate();
+    this.saveSession();
     console.log(`[Tabs] Closed tab ${tabId}`);
+  }
+
+  /**
+   * Reopen the most recently closed tab (Ctrl+Shift+T).
+   */
+  restoreClosedTab(): string | null {
+    const item = this.closedTabs.pop();
+    if (!item) return null;
+    return this.createTab(item.url, item.isPrivate);
+  }
+
+  /**
+   * Duplicate an existing tab.
+   */
+  duplicateTab(tabId: string): string | null {
+    const record = this.tabs.get(tabId);
+    if (!record) return null;
+    return this.createTab(record.url, record.isPrivate);
+  }
+
+  /**
+   * Persist active session tabs to disk.
+   */
+  saveSession(): void {
+    try {
+      const sessionData = Array.from(this.tabs.values())
+        .filter((t) => !t.isPrivate && t.url && t.url !== 'speeddial' && t.url !== SPEED_DIAL_DATA_URL)
+        .map((t) => ({ url: t.url, title: t.title }));
+
+      const sessionPath = path.join(app.getPath('userData'), 'muthu-last-session.json');
+      fs.writeFileSync(sessionPath, JSON.stringify(sessionData, null, 2), 'utf8');
+    } catch (err) {
+      console.error('[Tabs] Failed to save session:', err);
+    }
+  }
+
+  /**
+   * Restore tabs from last saved session.
+   */
+  restoreSession(): boolean {
+    try {
+      const sessionPath = path.join(app.getPath('userData'), 'muthu-last-session.json');
+      if (!fs.existsSync(sessionPath)) return false;
+      const raw = fs.readFileSync(sessionPath, 'utf8');
+      const list: Array<{ url: string; title: string }> = JSON.parse(raw);
+      if (!Array.isArray(list) || list.length === 0) return false;
+
+      for (const entry of list) {
+        if (entry.url) {
+          this.createTab(entry.url, false);
+        }
+      }
+      return true;
+    } catch (err) {
+      console.error('[Tabs] Failed to restore session:', err);
+      return false;
+    }
   }
 
   // ─── Navigation ─────────────────────────────────────────────────

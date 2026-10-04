@@ -54,6 +54,32 @@ export const IPC = {
   MEMORY_RESTORE_TAB:'memory:restore-tab',
   MEMORY_STATS_UPDATED: 'memory:stats-updated', // main → renderer
 
+  // ─── Tab Operations ───────────────────────────────────────────
+  TAB_DUPLICATE:     'tab:duplicate',
+  TAB_RESTORE_CLOSED:'tab:restore-closed',
+
+  // ─── Permissions ──────────────────────────────────────────────
+  PERMISSION_REQUEST: 'permission:request',       // main → renderer prompt
+  PERMISSION_RESPONSE:'permission:response',      // renderer → main user decision
+  PERMISSION_GET_ALL: 'permission:get-all',       // renderer → main get permissions map
+  PERMISSION_SET:     'permission:set',           // renderer → main set site permission
+  PERMISSION_RESET:   'permission:reset',         // renderer → main reset site permission
+
+  // ─── Privacy & Site Shields ───────────────────────────────────
+  PRIVACY_GET_SITE_STATS: 'privacy:get-site-stats',
+  PRIVACY_TOGGLE_SHIELD:  'privacy:toggle-shield',
+  PRIVACY_STATS_UPDATED:  'privacy:stats-updated', // main → renderer
+
+  // ─── AI Search & Assistant ────────────────────────────────────
+  AI_SEARCH:          'ai:search',
+  AI_SUMMARIZE_PAGE:  'ai:summarize-page',
+  AI_EXPLAIN_TEXT:    'ai:explain-text',
+  AI_ASK_QUESTION:    'ai:ask-question',
+  AI_EXTRACT_POINTS:  'ai:extract-points',
+
+  // ─── Benchmark & Diagnostics ─────────────────────────────────
+  BENCHMARK_RUN:      'benchmark:run',
+
   // ─── Settings ──────────────────────────────────────────────────
   SETTINGS_GET:          'settings:get',
   SETTINGS_SET:          'settings:set',

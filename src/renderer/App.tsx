@@ -20,6 +20,10 @@ import ChromeNewTabPage from './components/ChromeNewTabPage';
 import WebPreviewCard from './components/WebPreviewCard';
 import BrowserMenu from './components/BrowserMenu';
 import SettingsPage from './components/SettingsPage';
+import PermissionPrompt from './components/PermissionPrompt';
+import PrivacyDashboard from './components/PrivacyDashboard';
+import AiSidePanel from './components/AiSidePanel';
+import AiSearchPage from './components/AiSearchPage';
 
 const App: React.FC = () => {
   const {
@@ -30,6 +34,8 @@ const App: React.FC = () => {
     downloads,
     findMatchInfo,
     settings,
+    permissionPrompt,
+    privacyStats,
     createTab,
     createPrivateTab,
     closeTab,
@@ -49,12 +55,27 @@ const App: React.FC = () => {
     toggleDevTools,
     updateSetting,
     clearBrowsingData,
+    duplicateTab,
+    restoreClosedTab,
+    respondPermission,
+    getSitePrivacyStats,
+    toggleSiteShield,
+    aiSearch,
+    aiSummarizePage,
+    aiExplainText,
+    aiAskQuestion,
+    aiExtractPoints,
+    runBenchmark,
   } = useIpc();
 
   const [showFindBar, setShowFindBar] = useState(false);
   const [showVpnModal, setShowVpnModal] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [showAiPanel, setShowAiPanel] = useState(false);
+  const [showPrivacyDashboard, setShowPrivacyDashboard] = useState(false);
+  const [currentSiteStats, setCurrentSiteStats] = useState<any>(null);
+  const [searchData, setSearchData] = useState<any>(null);
 
   // Find active tab
   const activeTab = tabs.find((t) => t.id === activeTabId);
@@ -72,14 +93,18 @@ const App: React.FC = () => {
       if (showSettings) {
         window.muthuAPI.setToolbarHeight(window.innerHeight || 800);
       } else if (showVpnModal) {
-        window.muthuAPI.setToolbarHeight(480);
+        window.muthuAPI.setToolbarHeight(500);
+      } else if (showPrivacyDashboard) {
+        window.muthuAPI.setToolbarHeight(450);
       } else if (showMenu) {
         window.muthuAPI.setToolbarHeight(360);
+      } else if (permissionPrompt) {
+        window.muthuAPI.setToolbarHeight(260);
       } else {
         window.muthuAPI.setToolbarHeight(110);
       }
     }
-  }, [showSettings, showVpnModal, showMenu]);
+  }, [showSettings, showVpnModal, showMenu, showPrivacyDashboard, permissionPrompt]);
 
   // ─── Global Keyboard Shortcuts ───────────────────────────────
   useEffect(() => {
@@ -88,6 +113,11 @@ const App: React.FC = () => {
       if (e.ctrlKey && !e.shiftKey && e.key.toLowerCase() === 't') {
         e.preventDefault();
         createTab();
+      }
+      // Ctrl + Shift + T : Reopen Closed Tab
+      else if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 't') {
+        e.preventDefault();
+        restoreClosedTab();
       }
       // Ctrl + Shift + N : New Private Tab
       else if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 'n') {
@@ -140,7 +170,7 @@ const App: React.FC = () => {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [activeTabId, createTab, createPrivateTab, closeTab, reload, zoomIn, zoomOut, zoomReset, toggleDevTools]);
+  }, [activeTabId, createTab, createPrivateTab, closeTab, restoreClosedTab, reload, zoomIn, zoomOut, zoomReset, toggleDevTools]);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', width: '100%', height: '100vh', overflow: 'hidden' }}>
@@ -176,15 +206,25 @@ const App: React.FC = () => {
             onHome={() => createTab('speeddial')}
             onToggleVpnModal={() => {
               setShowMenu(false);
+              setShowPrivacyDashboard(false);
               setShowVpnModal((prev) => !prev);
             }}
             onMenuClick={() => {
               setShowVpnModal(false);
+              setShowPrivacyDashboard(false);
               setShowMenu((prev) => !prev);
             }}
-            onAdBlockClick={() => {
-              setShowSettings(true);
+            onAdBlockClick={async () => {
+              setShowVpnModal(false);
+              setShowMenu(false);
+              try {
+                const domain = activeTab?.url && activeTab.url.startsWith('http') ? new URL(activeTab.url).hostname : 'current-site';
+                const st = await getSitePrivacyStats(domain);
+                setCurrentSiteStats(st);
+              } catch {}
+              setShowPrivacyDashboard(true);
             }}
+            onAiClick={() => setShowAiPanel((prev) => !prev)}
             onFindClick={() => setShowFindBar((prev) => !prev)}
             onDevToolsClick={toggleDevTools}
           />
@@ -193,6 +233,14 @@ const App: React.FC = () => {
         {/* ── 3. Chrome Horizontal Bookmarks Bar ── */}
         <BookmarksBar onNavigate={navigateTo} />
       </div>
+
+      {/* ── Interactive Permission Request Prompt ── */}
+      {permissionPrompt && (
+        <PermissionPrompt
+          prompt={permissionPrompt}
+          onRespond={respondPermission}
+        />
+      )}
 
       {/* ── 4. Chrome Dropdown Menu (3-dot ⋮) ── */}
       <BrowserMenu
@@ -241,7 +289,24 @@ const App: React.FC = () => {
         />
       )}
 
-      {/* ── 7. Chrome VPN Dropdown Control Panel Modal ── */}
+      {/* ── 7. Per-Site Privacy Dashboard ── */}
+      {showPrivacyDashboard && (
+        <PrivacyDashboard
+          stats={currentSiteStats || {
+            domain: activeTab?.url ? new URL(activeTab.url.startsWith('http') ? activeTab.url : 'https://example.com').hostname : 'current-site',
+            adsBlocked: adBlockStats.totalBlocked,
+            trackersBlocked: 0,
+            thirdPartyBlocked: 0,
+            cookiesBlocked: 0,
+            shieldEnabled: true
+          }}
+          url={activeTab?.url || ''}
+          onToggleShield={toggleSiteShield}
+          onClose={() => setShowPrivacyDashboard(false)}
+        />
+      )}
+
+      {/* ── 8. Chrome VPN / WireGuard Control Panel Modal ── */}
       {showVpnModal && vpnStatus && (
         <VpnModal
           status={vpnStatus}
@@ -251,7 +316,18 @@ const App: React.FC = () => {
         />
       )}
 
-      {/* ── 8. Full Personalize Settings Page ── */}
+      {/* ── 9. AI Assistant Side Panel ── */}
+      <AiSidePanel
+        pageTitle={activeTab?.title || 'Current Page'}
+        pageUrl={activeTab?.url || ''}
+        isOpen={showAiPanel}
+        onClose={() => setShowAiPanel(false)}
+        onSummarize={aiSummarizePage}
+        onAskQuestion={aiAskQuestion}
+        onExtractPoints={aiExtractPoints}
+      />
+
+      {/* ── 10. Full Personalize Settings Page ── */}
       {showSettings && (
         <SettingsPage
           settings={settings}

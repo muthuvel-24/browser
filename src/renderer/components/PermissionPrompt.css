@@ -1,0 +1,116 @@
+.permission-prompt-card {
+  position: absolute;
+  top: 76px;
+  left: 120px;
+  z-index: 10000;
+  width: 330px;
+  background: #28292c;
+  border: 1px solid #3c4043;
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+  padding: 16px;
+  color: #e8eaed;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  animation: promptSlideDown 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes promptSlideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.permission-prompt-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.permission-prompt-icon {
+  font-size: 20px;
+  line-height: 1;
+  padding: 6px;
+  background: #35363a;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.permission-prompt-text {
+  flex: 1;
+  overflow: hidden;
+}
+
+.permission-prompt-origin {
+  font-size: 13px;
+  font-weight: 600;
+  color: #e8eaed;
+  word-break: break-all;
+}
+
+.permission-prompt-desc {
+  font-size: 12px;
+  color: #9aa0a6;
+  margin-top: 2px;
+}
+
+.permission-prompt-options {
+  margin-top: 14px;
+  padding-top: 10px;
+  border-top: 1px solid #3c4043;
+}
+
+.permission-prompt-remember {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: #bdc1c6;
+  cursor: pointer;
+  user-select: none;
+}
+
+.permission-prompt-remember input[type="checkbox"] {
+  accent-color: #8ab4f8;
+  cursor: pointer;
+}
+
+.permission-prompt-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.btn-perm {
+  border: none;
+  outline: none;
+  font-size: 12px;
+  font-weight: 500;
+  padding: 6px 14px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 0.15s ease, opacity 0.15s ease;
+}
+
+.btn-perm-block {
+  background: #3c4043;
+  color: #e8eaed;
+}
+
+.btn-perm-block:hover {
+  background: #4a4e52;
+}
+
+.btn-perm-allow {
+  background: #8ab4f8;
+  color: #202124;
+}
+
+.btn-perm-allow:hover {
+  background: #aecbfa;
+}

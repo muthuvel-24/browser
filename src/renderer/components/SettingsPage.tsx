@@ -44,7 +44,7 @@ export interface SettingsPageProps {
   appVersion?: string;
 }
 
-const SettingsPage: React.FC<SettingsPageProps> = ({
+export const SettingsPage: React.FC<SettingsPageProps> = ({
   settings,
   onSettingChange,
   onClearBrowsingData,
@@ -54,7 +54,9 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
   const [activeSection, setActiveSection] = useState('general');
   const [showClearDataModal, setShowClearDataModal] = useState(false);
   const [newWhitelistDomain, setNewWhitelistDomain] = useState('');
-  
+  const [benchmarkResult, setBenchmarkResult] = useState<any>(null);
+  const [isRunningBench, setIsRunningBench] = useState(false);
+
   const [clearDataOptions, setClearDataOptions] = useState<ClearDataOptions>({
     cookies: true,
     cache: true,
@@ -66,12 +68,16 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
   const sections = [
     { id: 'general', label: '⚙️ General' },
     { id: 'appearance', label: '🎨 Appearance' },
-    { id: 'privacy', label: '🔒 Privacy & Security' },
-    { id: 'adblocker', label: '🛡️ Ad Blocker' },
+    { id: 'search', label: '🔍 Search Engine' },
+    { id: 'ai', label: '✨ AI Assistant' },
+    { id: 'privacy', label: '🔒 Privacy & Cookies' },
+    { id: 'adblocker', label: '🛡️ Ad & Tracker Blocker' },
+    { id: 'vpn', label: '🌐 VPN & Tunnels' },
+    { id: 'permissions', label: '🔑 Permissions' },
+    { id: 'security', label: '🛡️ Security Hardening' },
+    { id: 'performance', label: '⚡ Performance' },
     { id: 'downloads', label: '⬇️ Downloads' },
-    { id: 'content', label: '📄 Content' },
-    { id: 'vpn', label: '🌐 VPN' },
-    { id: 'about', label: 'ℹ️ About' },
+    { id: 'about', label: 'ℹ️ About & Diagnostics' },
   ];
 
   const contentRef = useRef<HTMLDivElement>(null);
@@ -84,245 +90,357 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
     }
   };
 
-  const Toggle = ({ settingKey, label, desc }: { settingKey: keyof BrowserSettings, label: string, desc?: string }) => (
+  const Toggle = ({ settingKey, label, desc }: { settingKey: keyof BrowserSettings; label: string; desc?: string }) => (
     <div className="settingRow">
       <div className="settingLabel">
         <span className="settingName">{label}</span>
         {desc && <span className="settingDesc">{desc}</span>}
       </div>
       <label className="toggle">
-        <input 
-          type="checkbox" 
-          checked={settings[settingKey] as boolean} 
-          onChange={(e) => onSettingChange(settingKey, e.target.checked)} 
+        <input
+          type="checkbox"
+          checked={settings[settingKey] as boolean}
+          onChange={(e) => onSettingChange(settingKey, e.target.checked)}
         />
         <span className="slider"></span>
       </label>
     </div>
   );
 
-  const handleAddWhitelist = () => {
-    if (newWhitelistDomain && !settings.adBlockerWhitelist.includes(newWhitelistDomain)) {
-      onSettingChange('adBlockerWhitelist', [...settings.adBlockerWhitelist, newWhitelistDomain]);
+  const handleAddWhitelist = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (newWhitelistDomain.trim()) {
+      const currentList = settings.adBlockerWhitelist || [];
+      if (!currentList.includes(newWhitelistDomain.trim())) {
+        onSettingChange('adBlockerWhitelist', [...currentList, newWhitelistDomain.trim()]);
+      }
       setNewWhitelistDomain('');
     }
   };
 
   const handleRemoveWhitelist = (domain: string) => {
-    onSettingChange('adBlockerWhitelist', settings.adBlockerWhitelist.filter(d => d !== domain));
+    const currentList = settings.adBlockerWhitelist || [];
+    onSettingChange('adBlockerWhitelist', currentList.filter((d) => d !== domain));
   };
 
-  const handleClearDataSubmit = () => {
-    onClearBrowsingData(clearDataOptions);
-    setShowClearDataModal(false);
+  const handleRunBench = async () => {
+    setIsRunningBench(true);
+    try {
+      if (window.muthuAPI?.runBenchmark) {
+        const res = await window.muthuAPI.runBenchmark();
+        setBenchmarkResult(res);
+      }
+    } finally {
+      setIsRunningBench(false);
+    }
   };
 
   return (
-    <div className="settingsContainer">
-      <button className="closeButton" onClick={onClose} aria-label="Close">✕</button>
-      
-      <div className="sidebar">
-        {sections.map(s => (
-          <div 
-            key={s.id} 
-            className={`sidebarItem ${activeSection === s.id ? 'active' : ''}`}
-            onClick={() => scrollToSection(s.id)}
-          >
-            {s.label}
-          </div>
-        ))}
-      </div>
-      
-      <div className="content" ref={contentRef}>
-        <div className="contentInner">
-          
-          {/* General Section */}
-          <div id="section-general" className="section">
-            <h2 className="sectionTitle">General</h2>
-            <div className="settingRow">
-              <span className="settingName">Search Engine</span>
-              <select className="select" value={settings.searchEngine} onChange={e => onSettingChange('searchEngine', e.target.value)}>
-                <option value="google">Google</option>
-                <option value="bing">Bing</option>
-                <option value="duckduckgo">DuckDuckGo</option>
-                <option value="yahoo">Yahoo</option>
-              </select>
-            </div>
-            <div className="settingRow">
-              <span className="settingName">Startup Behavior</span>
-              <select className="select" value={settings.startupBehavior} onChange={e => onSettingChange('startupBehavior', e.target.value)}>
-                <option value="newTab">Open the New Tab page</option>
-                <option value="lastSession">Continue where you left off</option>
-                <option value="homepage">Open a specific page</option>
-              </select>
-            </div>
-            <div className="settingRow">
-              <span className="settingName">Homepage</span>
-              <input type="text" className="textInput" value={settings.homepage} onChange={e => onSettingChange('homepage', e.target.value)} />
-            </div>
-          </div>
-
-          {/* Appearance */}
-          <div id="section-appearance" className="section">
-            <h2 className="sectionTitle">Appearance</h2>
-            <div className="settingRow">
-              <span className="settingName">Theme</span>
-              <select className="select" value={settings.theme} onChange={e => onSettingChange('theme', e.target.value)}>
-                <option value="dark">Dark</option>
-                <option value="light">Light</option>
-                <option value="system">System Default</option>
-              </select>
-            </div>
-            <div className="settingRow">
-              <span className="settingName">Font Size</span>
-              <select className="select" value={settings.fontSize} onChange={e => onSettingChange('fontSize', e.target.value)}>
-                <option value="small">Small</option>
-                <option value="medium">Medium</option>
-                <option value="large">Large</option>
-              </select>
-            </div>
-            <div className="settingRow">
-              <span className="settingName">Page Zoom (%)</span>
-              <input type="number" className="numberInput" min="25" max="500" value={Math.round(settings.zoomLevel * 100)} onChange={e => onSettingChange('zoomLevel', parseInt(e.target.value) / 100)} />
-            </div>
-          </div>
-
-          {/* Privacy & Security */}
-          <div id="section-privacy" className="section">
-            <h2 className="sectionTitle">Privacy & Security</h2>
-            <div className="settingRow">
-              <div className="settingLabel">
-                <span className="settingName">Clear browsing data</span>
-                <span className="settingDesc">Clear history, cookies, cache, and more</span>
-              </div>
-              <button className="button danger" onClick={() => setShowClearDataModal(true)}>Clear Data</button>
-            </div>
-            <Toggle settingKey="httpsOnlyMode" label="Always use secure connections (HTTPS)" />
-            <Toggle settingKey="safeBrowsing" label="Safe Browsing" desc="Protects you from dangerous sites" />
-            <Toggle settingKey="blockThirdPartyCookies" label="Block third-party cookies" />
-            <Toggle settingKey="doNotTrack" label="Send a 'Do Not Track' request" />
-            <Toggle settingKey="fingerprintProtection" label="Fingerprinting Protection" />
-            <Toggle settingKey="clearCookiesOnExit" label="Clear cookies on exit" />
-            <Toggle settingKey="clearHistoryOnExit" label="Clear history on exit" />
-            <Toggle settingKey="clearCacheOnExit" label="Clear cache on exit" />
-          </div>
-
-          {/* Ad Blocker */}
-          <div id="section-adblocker" className="section">
-            <h2 className="sectionTitle">Ad Blocker</h2>
-            <Toggle settingKey="adBlockerEnabled" label="Enable Ad Blocker" />
-            <div className="settingRow" style={{flexDirection: 'column', alignItems: 'flex-start', gap: '16px'}}>
-              <span className="settingName">Whitelist Domains</span>
-              <div className="whitelistManager">
-                <div className="addWhitelistRow">
-                  <input 
-                    type="text" 
-                    className="textInput" 
-                    placeholder="example.com" 
-                    value={newWhitelistDomain}
-                    onChange={(e) => setNewWhitelistDomain(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && handleAddWhitelist()}
-                  />
-                  <button className="button" onClick={handleAddWhitelist}>Add</button>
-                </div>
-                <div className="whitelistItems">
-                  {settings.adBlockerWhitelist.map(domain => (
-                    <div key={domain} className="whitelistItem">
-                      <span>{domain}</span>
-                      <button className="removeWhitelistBtn" onClick={() => handleRemoveWhitelist(domain)}>✕</button>
-                    </div>
-                  ))}
-                  {settings.adBlockerWhitelist.length === 0 && (
-                    <span style={{color: '#9aa0a6', fontSize: '0.85rem'}}>No whitelisted domains.</span>
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Downloads */}
-          <div id="section-downloads" className="section">
-            <h2 className="sectionTitle">Downloads</h2>
-            <div className="settingRow">
-              <span className="settingName">Location</span>
-              <input type="text" className="textInput" style={{width: '300px'}} value={settings.downloadPath} onChange={e => onSettingChange('downloadPath', e.target.value)} />
-            </div>
-            <Toggle settingKey="askBeforeDownload" label="Ask where to save each file before downloading" />
-            <Toggle settingKey="warnDangerousDownloads" label="Warn about dangerous downloads" />
-          </div>
-
-          {/* Content */}
-          <div id="section-content" className="section">
-            <h2 className="sectionTitle">Content Settings</h2>
-            <Toggle settingKey="enableJavascript" label="Enable JavaScript" />
-            <Toggle settingKey="blockPopups" label="Block pop-ups and redirects" />
-            <Toggle settingKey="blockAutoplay" label="Block media autoplay" />
-          </div>
-
-          {/* VPN */}
-          <div id="section-vpn" className="section">
-            <h2 className="sectionTitle">VPN Settings</h2>
-            <Toggle settingKey="vpnAutoConnect" label="Auto-connect to VPN on startup" />
-            <div className="settingRow">
-              <span className="settingName">Default Region</span>
-              <select className="select" value={settings.vpnDefaultRegion} onChange={e => onSettingChange('vpnDefaultRegion', e.target.value)}>
-                <option value="US">United States</option>
-                <option value="EU">Europe</option>
-                <option value="Asia">Asia</option>
-              </select>
-            </div>
-          </div>
-
-          {/* About */}
-          <div id="section-about" className="section" style={{marginBottom: '40px'}}>
-            <h2 className="sectionTitle">About Muthu Browser</h2>
-            <div className="settingRow">
-              <span className="settingName">Version</span>
-              <span style={{color: '#9aa0a6'}}>{appVersion}</span>
-            </div>
-            <div className="settingRow">
-              <span className="settingName">Electron</span>
-              <span style={{color: '#9aa0a6'}}>{(window as any).process?.versions?.electron || 'Unknown'}</span>
-            </div>
-            <div className="settingRow">
-              <span className="settingName">Node.js</span>
-              <span style={{color: '#9aa0a6'}}>{(window as any).process?.versions?.node || 'Unknown'}</span>
-            </div>
-          </div>
-
+    <div className="settingsPage">
+      {/* Sidebar */}
+      <div className="settingsSidebar">
+        <div className="sidebarTitle">Settings</div>
+        <div className="sidebarNav">
+          {sections.map((section) => (
+            <button
+              key={section.id}
+              className={`sidebarItem ${activeSection === section.id ? 'active' : ''}`}
+              onClick={() => scrollToSection(section.id)}
+            >
+              {section.label}
+            </button>
+          ))}
         </div>
+      </div>
+
+      {/* Content Area */}
+      <div className="settingsContent" ref={contentRef}>
+        <button className="closeBtn" onClick={onClose}>✕</button>
+
+        {/* 1. General */}
+        <section id="section-general" className="settingsSection">
+          <h2>⚙️ General</h2>
+          <div className="settingRow">
+            <div className="settingLabel">
+              <span className="settingName">On Startup</span>
+              <span className="settingDesc">Choose what to open when Muthu Browser launches</span>
+            </div>
+            <select
+              className="selectInput"
+              value={settings.startupBehavior}
+              onChange={(e) => onSettingChange('startupBehavior', e.target.value)}
+            >
+              <option value="newTab">Open New Tab page</option>
+              <option value="lastSession">Restore last browsing session</option>
+              <option value="homepage">Open custom homepage</option>
+            </select>
+          </div>
+          <div className="settingRow">
+            <div className="settingLabel">
+              <span className="settingName">Homepage URL</span>
+              <span className="settingDesc">Set your preferred homepage</span>
+            </div>
+            <input
+              type="text"
+              className="textInput"
+              value={settings.homepage}
+              onChange={(e) => onSettingChange('homepage', e.target.value)}
+            />
+          </div>
+        </section>
+
+        {/* 2. Appearance */}
+        <section id="section-appearance" className="settingsSection">
+          <h2>🎨 Appearance</h2>
+          <div className="settingRow">
+            <div className="settingLabel">
+              <span className="settingName">Theme</span>
+              <span className="settingDesc">Customize browser aesthetic appearance</span>
+            </div>
+            <select
+              className="selectInput"
+              value={settings.theme}
+              onChange={(e) => onSettingChange('theme', e.target.value)}
+            >
+              <option value="dark">Chrome Dark</option>
+              <option value="light">Chrome Light</option>
+              <option value="system">Follow System</option>
+            </select>
+          </div>
+          <div className="settingRow">
+            <div className="settingLabel">
+              <span className="settingName">Font Size</span>
+            </div>
+            <select
+              className="selectInput"
+              value={settings.fontSize}
+              onChange={(e) => onSettingChange('fontSize', e.target.value)}
+            >
+              <option value="small">Small</option>
+              <option value="medium">Medium (Recommended)</option>
+              <option value="large">Large</option>
+            </select>
+          </div>
+        </section>
+
+        {/* 3. Search Engine */}
+        <section id="section-search" className="settingsSection">
+          <h2>🔍 Search Engine</h2>
+          <div className="settingRow">
+            <div className="settingLabel">
+              <span className="settingName">Default Search Engine</span>
+              <span className="settingDesc">Select search provider for Omnibox queries</span>
+            </div>
+            <select
+              className="selectInput"
+              value={settings.searchEngine}
+              onChange={(e) => onSettingChange('searchEngine', e.target.value)}
+            >
+              <option value="google">Google Search</option>
+              <option value="duckduckgo">DuckDuckGo (Privacy)</option>
+              <option value="bing">Microsoft Bing</option>
+              <option value="yahoo">Yahoo</option>
+            </select>
+          </div>
+        </section>
+
+        {/* 4. AI Assistant */}
+        <section id="section-ai" className="settingsSection">
+          <h2>✨ AI Assistant & LLM</h2>
+          <div className="settingRow">
+            <div className="settingLabel">
+              <span className="settingName">AI Engine Architecture</span>
+              <span className="settingDesc">Local private LLM (Ollama) or secure API endpoint</span>
+            </div>
+            <select className="selectInput" defaultValue="ollama">
+              <option value="ollama">Local Ollama (100% Private Offline)</option>
+              <option value="hybrid">Spring Boot Hybrid Cluster</option>
+              <option value="cloud">Cloud LLM API Abstraction</option>
+            </select>
+          </div>
+          <div className="settingRow">
+            <div className="settingLabel">
+              <span className="settingName">Data Minimization Policy</span>
+              <span className="settingDesc">Passwords and form fields are automatically masked</span>
+            </div>
+            <span style={{ color: '#81c995', fontWeight: 600, fontSize: '12px' }}>ENFORCED</span>
+          </div>
+        </section>
+
+        {/* 5. Privacy & Security */}
+        <section id="section-privacy" className="settingsSection">
+          <h2>🔒 Privacy & Cookies</h2>
+          <Toggle settingKey="blockThirdPartyCookies" label="Block Third-Party Cookies" desc="Prevent cross-site trackers from storing cookies" />
+          <Toggle settingKey="doNotTrack" label="Send 'Do Not Track' Header" desc="Request websites not to track your browsing session" />
+          <Toggle settingKey="fingerprintProtection" label="Anti-Fingerprinting Shield" desc="Normalize WebGL, Canvas, and Battery API signals" />
+          <div className="settingRow">
+            <div className="settingLabel">
+              <span className="settingName">Clear Browsing Data</span>
+              <span className="settingDesc">Delete cookies, cache, and site data</span>
+            </div>
+            <button className="primaryBtn" onClick={() => setShowClearDataModal(true)}>Clear Data...</button>
+          </div>
+        </section>
+
+        {/* 6. Ad Blocker */}
+        <section id="section-adblocker" className="settingsSection">
+          <h2>🛡️ Ad & Tracker Blocker</h2>
+          <Toggle settingKey="adBlockerEnabled" label="Enable Content Filtering" desc="Network-level ad, tracker, and telemetry interceptor" />
+          <div className="whitelistManager">
+            <span className="settingName">Whitelisted Domains</span>
+            <form onSubmit={handleAddWhitelist} className="whitelistForm">
+              <input
+                type="text"
+                placeholder="example.com"
+                value={newWhitelistDomain}
+                onChange={(e) => setNewWhitelistDomain(e.target.value)}
+                className="textInput"
+              />
+              <button type="submit" className="primaryBtn">Add</button>
+            </form>
+            <div className="whitelistTags">
+              {(settings.adBlockerWhitelist || []).map((domain) => (
+                <span key={domain} className="whitelistTag">
+                  {domain}
+                  <button type="button" onClick={() => handleRemoveWhitelist(domain)}>✕</button>
+                </span>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* 7. VPN & Tunnels */}
+        <section id="section-vpn" className="settingsSection">
+          <h2>🌐 VPN & Tunnels</h2>
+          <Toggle settingKey="vpnAutoConnect" label="Connect on Launch" desc="Automatically initiate tunnel connection upon browser startup" />
+          <div className="settingRow">
+            <div className="settingLabel">
+              <span className="settingName">Default Tunnel Location</span>
+            </div>
+            <select
+              className="selectInput"
+              value={settings.vpnDefaultRegion}
+              onChange={(e) => onSettingChange('vpnDefaultRegion', e.target.value)}
+            >
+              <option value="US">United States (East)</option>
+              <option value="EU">Europe (Frankfurt)</option>
+              <option value="Asia">Asia-Pacific (Singapore)</option>
+            </select>
+          </div>
+        </section>
+
+        {/* 8. Permissions */}
+        <section id="section-permissions" className="settingsSection">
+          <h2>🔑 Permissions</h2>
+          <div className="settingRow">
+            <div className="settingLabel">
+              <span className="settingName">Default Permission Policy</span>
+              <span className="settingDesc">Prompt user interactively before granting sensitive hardware APIs</span>
+            </div>
+            <span style={{ color: '#8ab4f8', fontWeight: 600, fontSize: '12px' }}>ASK (Recommended)</span>
+          </div>
+        </section>
+
+        {/* 9. Security */}
+        <section id="section-security" className="settingsSection">
+          <h2>🛡️ Security Hardening</h2>
+          <Toggle settingKey="httpsOnlyMode" label="HTTPS-Only Mode" desc="Upgrade insecure HTTP navigations to HTTPS" />
+          <Toggle settingKey="safeBrowsing" label="Anti-Phishing Homograph Detection" desc="Detect lookalike Cyrillic domains" />
+          <Toggle settingKey="warnDangerousDownloads" label="Warn on Dangerous File Downloads" desc="Alert when downloading executable scripts" />
+        </section>
+
+        {/* 10. Performance */}
+        <section id="section-performance" className="settingsSection">
+          <h2>⚡ Performance & Memory Saver</h2>
+          <div className="settingRow">
+            <div className="settingLabel">
+              <span className="settingName">Adaptive Multi-Tab Memory Saver</span>
+              <span className="settingDesc">Sleeps background tabs under memory pressure; discards idle WebContents</span>
+            </div>
+            <span style={{ color: '#81c995', fontWeight: 600, fontSize: '12px' }}>ACTIVE</span>
+          </div>
+        </section>
+
+        {/* 11. Downloads */}
+        <section id="section-downloads" className="settingsSection">
+          <h2>⬇️ Downloads</h2>
+          <Toggle settingKey="askBeforeDownload" label="Ask Where to Save Each File" desc="Prompt file dialog before downloading" />
+        </section>
+
+        {/* 12. About & Diagnostics */}
+        <section id="section-about" className="settingsSection">
+          <h2>ℹ️ About & Diagnostics</h2>
+          <div className="aboutCard">
+            <div><strong>Product:</strong> AI-Powered Privacy Web Browser</div>
+            <div><strong>Version:</strong> {appVersion}</div>
+            <div><strong>Engine:</strong> Electron 33.4 / Chromium 131.0 / Node 20.18</div>
+            <div><strong>Architecture:</strong> Production-Grade TypeScript & React 18</div>
+          </div>
+
+          <div style={{ marginTop: '16px' }}>
+            <button
+              className="primaryBtn"
+              onClick={handleRunBench}
+              disabled={isRunningBench}
+            >
+              {isRunningBench ? 'Running Diagnostic...' : '⚡ Run Performance Benchmark'}
+            </button>
+
+            {benchmarkResult && (
+              <div className="aboutCard" style={{ marginTop: '12px' }}>
+                <div><strong>Overall Score:</strong> {benchmarkResult.overallScore}/100</div>
+                <div><strong>Tab Allocation Latency:</strong> {benchmarkResult.tabCreationAvgMs} ms</div>
+                <div><strong>Tab Switch Latency:</strong> {benchmarkResult.tabSwitchAvgMs} ms</div>
+                <div><strong>Search Latency:</strong> {benchmarkResult.searchLatencyMs} ms</div>
+                <div><strong>Estimated Memory (20 Tabs):</strong> {benchmarkResult.memory20TabsMB} MB</div>
+              </div>
+            )}
+          </div>
+        </section>
       </div>
 
       {/* Clear Data Modal */}
       {showClearDataModal && (
-        <div className="modalOverlay" onClick={() => setShowClearDataModal(false)}>
-          <div className="modalCard" onClick={e => e.stopPropagation()}>
-            <h3 className="modalTitle">Clear browsing data</h3>
-            <div className="modalContent">
-              <label className="checkboxRow">
-                <input type="checkbox" checked={clearDataOptions.cookies} onChange={e => setClearDataOptions({...clearDataOptions, cookies: e.target.checked})} />
-                Cookies and other site data
+        <div className="modalBackdrop">
+          <div className="modalContent">
+            <h3>Clear Browsing Data</h3>
+            <div className="modalBody">
+              <label>
+                <input
+                  type="checkbox"
+                  checked={clearDataOptions.cookies}
+                  onChange={(e) => setClearDataOptions((prev) => ({ ...prev, cookies: e.target.checked }))}
+                />
+                Cookies and site data
               </label>
-              <label className="checkboxRow">
-                <input type="checkbox" checked={clearDataOptions.cache} onChange={e => setClearDataOptions({...clearDataOptions, cache: e.target.checked})} />
+              <label>
+                <input
+                  type="checkbox"
+                  checked={clearDataOptions.cache}
+                  onChange={(e) => setClearDataOptions((prev) => ({ ...prev, cache: e.target.checked }))}
+                />
                 Cached images and files
               </label>
-              <label className="checkboxRow">
-                <input type="checkbox" checked={clearDataOptions.localStorage} onChange={e => setClearDataOptions({...clearDataOptions, localStorage: e.target.checked})} />
-                Local Storage
-              </label>
-              <label className="checkboxRow">
-                <input type="checkbox" checked={clearDataOptions.indexedDB} onChange={e => setClearDataOptions({...clearDataOptions, indexedDB: e.target.checked})} />
-                IndexedDB
-              </label>
-              <label className="checkboxRow">
-                <input type="checkbox" checked={clearDataOptions.serviceWorkers} onChange={e => setClearDataOptions({...clearDataOptions, serviceWorkers: e.target.checked})} />
-                Service Workers
+              <label>
+                <input
+                  type="checkbox"
+                  checked={clearDataOptions.localStorage}
+                  onChange={(e) => setClearDataOptions((prev) => ({ ...prev, localStorage: e.target.checked }))}
+                />
+                Local storage data
               </label>
             </div>
             <div className="modalActions">
-              <button className="modalBtn" onClick={() => setShowClearDataModal(false)}>Cancel</button>
-              <button className="modalBtn primary" onClick={handleClearDataSubmit}>Clear Data</button>
+              <button className="secondaryBtn" onClick={() => setShowClearDataModal(false)}>Cancel</button>
+              <button
+                className="dangerBtn"
+                onClick={() => {
+                  onClearBrowsingData(clearDataOptions);
+                  setShowClearDataModal(false);
+                }}
+              >
+                Clear
+              </button>
             </div>
           </div>
         </div>

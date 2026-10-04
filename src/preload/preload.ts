@@ -161,6 +161,79 @@ const muthuAPI = {
     return ipcRenderer.invoke(IPC.MEMORY_RESTORE_TAB, tabId);
   },
 
+  /** Duplicate a tab. */
+  duplicateTab: (tabId: string): Promise<string> => {
+    return ipcRenderer.invoke(IPC.TAB_DUPLICATE, tabId);
+  },
+
+  /** Reopen the most recently closed tab (Ctrl+Shift+T). */
+  restoreClosedTab: (): Promise<string | null> => {
+    return ipcRenderer.invoke(IPC.TAB_RESTORE_CLOSED);
+  },
+
+  // ─── Permissions ────────────────────────────────────────────
+
+  /** Respond to an active permission prompt. */
+  respondPermission: (promptId: string, decision: 'allow' | 'block', remember: boolean): Promise<boolean> => {
+    return ipcRenderer.invoke(IPC.PERMISSION_RESPONSE, promptId, decision, remember);
+  },
+
+  /** Get all stored site permissions. */
+  getAllPermissions: (): Promise<Record<string, Record<string, string>>> => {
+    return ipcRenderer.invoke(IPC.PERMISSION_GET_ALL);
+  },
+
+  /** Set permission for a site directly. */
+  setSitePermission: (origin: string, perm: string, decision: string): Promise<void> => {
+    return ipcRenderer.invoke(IPC.PERMISSION_SET, origin, perm, decision);
+  },
+
+  // ─── Privacy Engine & Site Shields ──────────────────────────
+
+  /** Get privacy stats for a specific site. */
+  getSitePrivacyStats: (domain: string): Promise<any> => {
+    return ipcRenderer.invoke(IPC.PRIVACY_GET_SITE_STATS, domain);
+  },
+
+  /** Toggle shield on/off for a domain. */
+  toggleSiteShield: (domain: string, enabled: boolean): Promise<void> => {
+    return ipcRenderer.invoke(IPC.PRIVACY_TOGGLE_SHIELD, domain, enabled);
+  },
+
+  // ─── AI Search & Assistant ──────────────────────────────────
+
+  /** Execute Hybrid AI Search. */
+  aiSearch: (query: string): Promise<any> => {
+    return ipcRenderer.invoke(IPC.AI_SEARCH, query);
+  },
+
+  /** Summarize current webpage. */
+  aiSummarizePage: (title: string, url: string, content: string): Promise<string> => {
+    return ipcRenderer.invoke(IPC.AI_SUMMARIZE_PAGE, title, url, content);
+  },
+
+  /** Explain selected text. */
+  aiExplainText: (text: string, context?: string): Promise<string> => {
+    return ipcRenderer.invoke(IPC.AI_EXPLAIN_TEXT, text, context);
+  },
+
+  /** Ask question about current webpage. */
+  aiAskQuestion: (question: string, content: string): Promise<string> => {
+    return ipcRenderer.invoke(IPC.AI_ASK_QUESTION, question, content);
+  },
+
+  /** Extract key points from content. */
+  aiExtractPoints: (content: string): Promise<string> => {
+    return ipcRenderer.invoke(IPC.AI_EXTRACT_POINTS, content);
+  },
+
+  // ─── Performance Diagnostics ────────────────────────────────
+
+  /** Run system performance benchmark. */
+  runBenchmark: (): Promise<any> => {
+    return ipcRenderer.invoke(IPC.BENCHMARK_RUN);
+  },
+
   // ─── Settings ───────────────────────────────────────────────
 
   /** Get a single setting value. */
@@ -209,6 +282,24 @@ const muthuAPI = {
   },
 
   // ─── Event Subscriptions (Main → Renderer) ─────────────────
+
+  /** Subscribe to interactive permission requests. */
+  onPermissionRequest: (callback: (prompt: any) => void): (() => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, prompt: any) => {
+      callback(prompt);
+    };
+    ipcRenderer.on(IPC.PERMISSION_REQUEST, handler);
+    return () => ipcRenderer.removeListener(IPC.PERMISSION_REQUEST, handler);
+  },
+
+  /** Subscribe to privacy stats updates. */
+  onPrivacyStatsUpdated: (callback: (stats: any) => void): (() => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, stats: any) => {
+      callback(stats);
+    };
+    ipcRenderer.on(IPC.PRIVACY_STATS_UPDATED, handler);
+    return () => ipcRenderer.removeListener(IPC.PRIVACY_STATS_UPDATED, handler);
+  },
 
   /** Subscribe to tab list updates. */
   onTabUpdated: (callback: (tabs: import('../main/types').TabInfo[]) => void): (() => void) => {

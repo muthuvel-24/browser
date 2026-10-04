@@ -26,6 +26,7 @@ interface AddressBarProps {
   onToggleVpnModal: () => void;
   onMenuClick?: () => void;
   onAdBlockClick?: () => void;
+  onAiClick?: () => void;
   onFindClick?: () => void;
   onDevToolsClick?: () => void;
 }
@@ -62,6 +63,7 @@ const AddressBar: React.FC<AddressBarProps> = ({
   onToggleVpnModal,
   onMenuClick,
   onAdBlockClick,
+  onAiClick,
   onFindClick,
   onDevToolsClick,
 }) => {
@@ -248,6 +250,18 @@ const AddressBar: React.FC<AddressBarProps> = ({
           </span>
           <span className={`vpn-pill-indicator ${vpnStatus?.enabled ? 'vpn-pill-indicator--on' : ''}`} />
         </button>
+
+        {/* AI Assistant Button */}
+        {onAiClick && (
+          <button
+            className="url-action-btn"
+            title="Open AI Browser Assistant (Summarize, Q&A, Extract)"
+            onClick={onAiClick}
+            style={{ color: '#8ab4f8', fontWeight: 'bold' }}
+          >
+            ✨ AI
+          </button>
+        )}
 
         {/* Downloads */}
         <DownloadManager downloads={downloads} />

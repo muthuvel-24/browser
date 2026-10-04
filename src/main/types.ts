@@ -82,8 +82,6 @@ export interface AdBlockStats {
   perTab: Record<string, number>;
 }
 
-// ─── Memory Types ───────────────────────────────────────────────
-
 /** Memory manager statistics */
 export interface MemoryStats {
   /** Number of tabs currently in sleeping state */
@@ -92,8 +90,16 @@ export interface MemoryStats {
   discardedTabs: number;
   /** Total active (non-discarded) tabs */
   activeTabs: number;
-  /** Estimated memory saved (MB) by sleeping/discarding */
-  estimatedSavedMB: number;
+  /** Total tabs count */
+  totalTabs: number;
+  /** Real measured Process Private Memory (MB) */
+  processMemoryMB: number;
+  /** Real total browser suite memory (MB) across all processes */
+  totalSuiteMemoryMB: number;
+  /** Current CPU usage percentage */
+  cpuPercent: number;
+  /** Current adaptive memory pressure level */
+  pressureLevel: 'normal' | 'moderate' | 'high' | 'critical';
 }
 
 // ─── Download Types ─────────────────────────────────────────────

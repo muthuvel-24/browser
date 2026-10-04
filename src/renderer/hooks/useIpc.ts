@@ -83,7 +83,11 @@ const DEFAULT_MEMORY_STATS: MemoryStats = {
   sleepingTabs: 0,
   discardedTabs: 0,
   activeTabs: 1,
-  estimatedSavedMB: 45,
+  totalTabs: 1,
+  processMemoryMB: 120,
+  totalSuiteMemoryMB: 280,
+  cpuPercent: 1.2,
+  pressureLevel: 'normal',
 };
 
 /** Determine clean display URL / normalizer */
@@ -130,6 +134,19 @@ export function useIpc(): IpcState & {
   updateAllSettings: (partial: Partial<BrowserSettings>) => void;
   resetSettings: () => void;
   clearBrowsingData: (options: ClearDataOptions) => void;
+  duplicateTab: (tabId: string) => void;
+  restoreClosedTab: () => void;
+  permissionPrompt: any;
+  respondPermission: (id: string, decision: 'allow' | 'block', remember: boolean) => void;
+  privacyStats: any;
+  getSitePrivacyStats: (domain: string) => Promise<any>;
+  toggleSiteShield: (domain: string, enabled: boolean) => Promise<void>;
+  aiSearch: (query: string) => Promise<any>;
+  aiSummarizePage: (title: string, url: string, content: string) => Promise<string>;
+  aiExplainText: (text: string, context?: string) => Promise<string>;
+  aiAskQuestion: (question: string, content: string) => Promise<string>;
+  aiExtractPoints: (content: string) => Promise<string>;
+  runBenchmark: () => Promise<any>;
 } {
   const [tabs, setTabs] = useState<TabInfo[]>(DEFAULT_INITIAL_TABS);
   const [activeTabId, setActiveTabId] = useState<string | null>('tab-google');
@@ -139,6 +156,8 @@ export function useIpc(): IpcState & {
   const [downloads, setDownloads] = useState<DownloadItemInfo[]>([]);
   const [findMatchInfo, setFindMatchInfo] = useState<FindMatchInfo | null>(null);
   const [settings, setSettings] = useState<BrowserSettings>(DEFAULT_SETTINGS_STATE);
+  const [permissionPrompt, setPermissionPrompt] = useState<any>(null);
+  const [privacyStats, setPrivacyStats] = useState<any>(null);
 
   const getApi = () => typeof window !== 'undefined' ? window.muthuAPI : undefined;
 
@@ -203,6 +222,14 @@ export function useIpc(): IpcState & {
       }
     }).catch((err) => console.warn('[useIpc] getAllSettings error:', err));
 
+    const unsubPerm = api.onPermissionRequest?.((prompt: any) => {
+      setPermissionPrompt(prompt);
+    });
+
+    const unsubPriv = api.onPrivacyStatsUpdated?.((stats: any) => {
+      setPrivacyStats(stats);
+    });
+
     return () => {
       unsubTabs();
       unsubVpn();
@@ -211,6 +238,8 @@ export function useIpc(): IpcState & {
       unsubDownloads?.();
       unsubFind?.();
       unsubSettings?.();
+      unsubPerm?.();
+      unsubPriv?.();
     };
   }, []);
 
@@ -439,6 +468,69 @@ export function useIpc(): IpcState & {
     }
   }, []);
 
+  const duplicateTab = useCallback((tabId: string) => {
+    const api = getApi();
+    api?.duplicateTab?.(tabId).catch((err) => console.warn('[useIpc] duplicateTab error:', err));
+  }, []);
+
+  const restoreClosedTab = useCallback(() => {
+    const api = getApi();
+    api?.restoreClosedTab?.().catch((err) => console.warn('[useIpc] restoreClosedTab error:', err));
+  }, []);
+
+  const respondPermission = useCallback((id: string, decision: 'allow' | 'block', remember: boolean) => {
+    setPermissionPrompt(null);
+    const api = getApi();
+    api?.respondPermission?.(id, decision, remember).catch((err) => console.warn('[useIpc] respondPermission error:', err));
+  }, []);
+
+  const getSitePrivacyStats = useCallback(async (domain: string) => {
+    const api = getApi();
+    if (api?.getSitePrivacyStats) {
+      return api.getSitePrivacyStats(domain);
+    }
+    return { domain, adsBlocked: 0, trackersBlocked: 0, thirdPartyBlocked: 0, cookiesBlocked: 0, shieldEnabled: true };
+  }, []);
+
+  const toggleSiteShield = useCallback(async (domain: string, enabled: boolean) => {
+    const api = getApi();
+    await api?.toggleSiteShield?.(domain, enabled);
+  }, []);
+
+  const aiSearch = useCallback(async (query: string) => {
+    const api = getApi();
+    return api?.aiSearch?.(query);
+  }, []);
+
+  const aiSummarizePage = useCallback(async (title: string, url: string, content: string) => {
+    const api = getApi();
+    if (api?.aiSummarizePage) return api.aiSummarizePage(title, url, content);
+    return 'Summary unavailable.';
+  }, []);
+
+  const aiExplainText = useCallback(async (text: string, context?: string) => {
+    const api = getApi();
+    if (api?.aiExplainText) return api.aiExplainText(text, context);
+    return 'Explanation unavailable.';
+  }, []);
+
+  const aiAskQuestion = useCallback(async (question: string, content: string) => {
+    const api = getApi();
+    if (api?.aiAskQuestion) return api.aiAskQuestion(question, content);
+    return 'Answer unavailable.';
+  }, []);
+
+  const aiExtractPoints = useCallback(async (content: string) => {
+    const api = getApi();
+    if (api?.aiExtractPoints) return api.aiExtractPoints(content);
+    return 'Points extraction unavailable.';
+  }, []);
+
+  const runBenchmark = useCallback(async () => {
+    const api = getApi();
+    return api?.runBenchmark?.();
+  }, []);
+
   return {
     tabs,
     activeTabId,
@@ -448,6 +540,8 @@ export function useIpc(): IpcState & {
     downloads,
     findMatchInfo,
     settings,
+    permissionPrompt,
+    privacyStats,
     createTab,
     createPrivateTab,
     closeTab,
@@ -470,5 +564,16 @@ export function useIpc(): IpcState & {
     updateAllSettings,
     resetSettings,
     clearBrowsingData,
+    duplicateTab,
+    restoreClosedTab,
+    respondPermission,
+    getSitePrivacyStats,
+    toggleSiteShield,
+    aiSearch,
+    aiSummarizePage,
+    aiExplainText,
+    aiAskQuestion,
+    aiExtractPoints,
+    runBenchmark,
   };
 }

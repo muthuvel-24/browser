@@ -1,58 +1,91 @@
-/* MemoryIndicator — Leaf icon with optimization count */
-
-.memory-indicator {
+.memory-indicator-container {
   position: relative;
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 28px;
-  border-radius: var(--radius-sm);
-  cursor: default;
-  transition: background var(--transition-fast);
 }
 
-.memory-indicator:hover {
-  background: rgba(255, 255, 255, 0.06);
-}
-
-/* Active state — leaf is "alive" */
-.memory-indicator--active .memory-icon {
-  animation: gentle-sway 3s ease-in-out infinite;
-}
-
-@keyframes gentle-sway {
-  0%, 100% { transform: rotate(0deg); }
-  25% { transform: rotate(5deg); }
-  75% { transform: rotate(-5deg); }
-}
-
-/* ── Icon ───────────────────────────────────────────────────────── */
-
-.memory-icon {
-  font-size: 15px;
-  line-height: 1;
-  transition: transform var(--transition-normal);
-}
-
-/* ── Count Badge ────────────────────────────────────────────────── */
-
-.memory-count {
-  position: absolute;
-  top: 0px;
-  right: -2px;
-  min-width: 16px;
-  height: 14px;
-  padding: 0 3px;
-  font-size: 9px;
-  font-weight: 700;
+.memory-indicator-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #28292c;
+  border: 1px solid #3c4043;
+  border-radius: 12px;
+  padding: 3px 8px;
+  color: #e8eaed;
+  font-size: 11px;
   font-family: inherit;
-  color: #fff;
-  background: var(--accent-green);
-  border-radius: 7px;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.memory-indicator-btn:hover {
+  background: #35363a;
+  border-color: #5f6368;
+}
+
+.memory-pulse-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  display: inline-block;
+  box-shadow: 0 0 5px currentColor;
+}
+
+.memory-ram-label {
+  font-weight: 500;
+  color: #e8eaed;
+}
+
+.memory-cpu-label {
+  color: #9aa0a6;
+  font-size: 10px;
+}
+
+.memory-details-popover {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  margin-top: 6px;
+  width: 220px;
+  background: #202124;
+  border: 1px solid #3c4043;
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+  padding: 12px;
+  z-index: 10001;
+  font-size: 12px;
+  color: #e8eaed;
+}
+
+.memory-popover-header {
   display: flex;
+  justify-content: space-between;
   align-items: center;
-  justify-content: center;
-  line-height: 1;
-  box-shadow: 0 0 6px rgba(0, 255, 136, 0.3);
+  margin-bottom: 8px;
+}
+
+.memory-pressure-tag {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 6px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 4px;
+}
+
+.memory-metric-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 3px 0;
+  color: #bdc1c6;
+}
+
+.memory-metric-row strong {
+  color: #e8eaed;
+}
+
+.memory-divider {
+  border: none;
+  border-top: 1px solid #3c4043;
+  margin: 8px 0;
 }

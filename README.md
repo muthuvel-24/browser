@@ -1,4 +1,4 @@
-# 🚀 Muthu Browser
+# 🚀 Muthu Browser — AI-Powered Privacy Web Browser
 
 <p align="center">
   <img src="https://img.shields.io/badge/Electron-33.4.0-47A248?style=for-the-badge&logo=electron&logoColor=white" alt="Electron" />
@@ -6,61 +6,64 @@
   <img src="https://img.shields.io/badge/TypeScript-5.7.0-3178C6?style=for-the-badge&logo=typescript&logoColor=white" alt="TypeScript" />
   <img src="https://img.shields.io/badge/Vite-5.4.11-646CFF?style=for-the-badge&logo=vite&logoColor=white" alt="Vite" />
   <img src="https://img.shields.io/badge/Security-Hardened-00E676?style=for-the-badge&logo=securityscorecard&logoColor=white" alt="Security" />
+  <img src="https://img.shields.io/badge/Tests-49%2F49%20Passing-brightgreen?style=for-the-badge" alt="Tests" />
 </p>
 
-> **Muthu Browser** is a fast, privacy-hardened desktop web browser built with **Electron v33**, **React 18**, and **TypeScript**. It features a modern **Google Chrome-style dark mode interface**, built-in **network-level ad/tracker blocking**, an **instant YouTube video ad-skipper**, **DNS-over-HTTPS (DoH) zero-log VPN privacy**, **anti-fingerprinting defenses**, **OAuth / Google Sign-In popup support**, and an **intelligent V8 memory optimization engine**.
+> **Muthu Browser** is an enterprise-grade, privacy-first desktop web browser built with **Electron v33**, **React 18**, and **TypeScript**. It combines a modern **Chrome dark-mode interface**, **AI-powered search engine** with cited source attribution, **on-demand AI browsing assistant**, **deep privacy engine** with third-party tracking shield, **genuine WireGuard tunnel / proxy controller**, **adaptive multi-tab memory management**, and **granular site permission control**.
 
 ---
 
-## ✨ Key Features
+## ✨ Key Features & Architecture
 
-### 🌌 Chrome Desktop Dark Theme & Navigation
-- **Chrome Dark Theme Palette**: Polished UI matching Google Chrome (`#202124` Canvas, `#35363A` Frame, `#28292C` Omnibox Pill).
-- **Chrome Tab Strip**: Responsive tabs with favicons, live loading spinners, sleep badges (`💤`), and private mode indicators (`🕶️`).
-- **Chrome 3-Dot (⋮) Menu**: Fast access to New Tab (`Ctrl+T`), New Incognito Tab (`Ctrl+Shift+N`), Zoom controls (`-` / `+` / `100%`), Find in Page (`Ctrl+F`), and Settings.
-- **Speed Dial Start Page**: Quick-access shortcuts to popular web destinations and customizable bookmarks.
+### 1. 🔍 AI-Powered Hybrid Search Engine
+- **Intelligent Query Understanding**: Dynamically classifies input into direct URL navigation vs. search query, stripping malicious schemes (`javascript:`, `data:`).
+- **Hybrid Search Architecture**: Combines keyword BM25 retrieval with vector semantic similarity for high precision and semantic depth.
+- **AI Answer Synthesis with Citations**: Delivers concise AI answers directly tied to cited, clickable web sources without hallucination.
+- **Backend Ready**: Ready to connect with the standalone **Spring Boot + PostgreSQL + pgvector + Elasticsearch** search backend documented in `backend/search-service/`.
 
-### ⚙️ User Personalization & Settings Page
-- **Full Settings Dashboard**: 8 comprehensive configuration categories:
-  - 🏠 **General**: Search engine selection (Google, Bing, DuckDuckGo, Yahoo), startup behavior, and custom homepage.
-  - 🎨 **Appearance**: Theme selector (Dark / Light / System), font sizes, and default zoom level.
-  - 🔒 **Privacy & Security**: Do Not Track (DNT), clear data on exit, homograph phishing protection, and dangerous download alerts.
-  - 🛡️ **Ad Blocker**: Global ad-blocker toggle and customizable domain whitelist manager.
-  - 📥 **Downloads**: Default download directory picker and confirm-before-download options.
-  - 🧩 **Content**: Popup blocking, autoplay restrictions, and JavaScript toggles.
-  - 🌐 **VPN & Proxy**: Auto-connect on startup and default server region preference.
-  - ℹ️ **About**: App version, Chromium, Node.js, and Electron runtime details.
-- **Persistent Atomic Storage**: Settings saved automatically to `muthu-settings.json`.
+### 2. 🤖 AI Browser Assistant Side Panel
+- **Page Summarizer**: Generates structured, concise summaries of current webpage content.
+- **Explain Selected Text**: Provides context-aware breakdowns of complex concepts and jargon.
+- **In-Page Q&A**: Ask natural language questions grounded strictly in the current page DOM.
+- **Key Takeaways & Comparison**: Extract critical bullet points and compare facts across sources.
+- **Strict Privacy Sanitization**: Automatically scrubs credit cards, Social Security numbers, and JWT/Bearer tokens before sending context to LLMs.
 
-### 🛡️ Ad & Tracker Blocker + YouTube Ad Skipper
-- **Network-Level Filter Engine**: Blocks known ad servers, telemetry endpoints, and tracking networks without breaking websites.
-- **Instant YouTube Ad Skipper**: Preload-level video ad cleaner that skips pre-roll and mid-roll ads instantly.
-- **Tracking Parameter Sanitizer**: Strips invasive tracking tokens (`utm_*`, `fbclid`, `gclid`, `msclkid`, etc.) from URLs while preserving authentication and OAuth state parameters.
-- **Live Metrics Badge**: Shield icon in the address bar displaying real-time blocked request counts.
+### 3. 🛡️ Deep Privacy Engine & Per-Site Shields
+- **Real-Time Request Filtering**: Blocks known ad servers, telemetry endpoints, and tracking networks without breaking websites.
+- **Third-Party Cookie Stripping**: Strips third-party `Set-Cookie` response headers to prevent cross-site tracking.
+- **URL Parameter Sanitization**: Removes invasive tracking tokens (`utm_*`, `fbclid`, `gclid`, `msclkid`, etc.) while protecting OAuth parameters.
+- **Per-Site Privacy Dashboard**: Click the shield icon in the omnibox to inspect real-time ads, trackers, and cookies blocked for the active domain, or whitelist trusted sites.
 
-### 🔒 Enterprise Browser Security & Anti-Fingerprinting
-- **Google Sign-In & Bot Detection Bypass**: Spoofs `navigator.webdriver`, `window.chrome`, and plugins so Google, Claude.ai, and Cloudflare services work smoothly.
-- **OAuth / SSO Native Popup Windows**: Allows Google, Apple, GitHub, Microsoft, and Auth0 popup dialogs with preserved `window.opener` and `postMessage` support.
-- **Anti-Fingerprinting Shield**:
-  - `navigator.hardwareConcurrency` normalization.
-  - Battery Status API privacy mask.
-  - WebGL vendor/renderer standardization (`Google Inc. / ANGLE`).
-- **Download Protection**: Automatic filename sanitization against path traversal (`../`) and dangerous extension warnings (`.exe`, `.bat`, `.ps1`, `.vbs`, `.msi`, `.cmd`).
-- **IDN Homograph Phishing Defense**: Detects and highlights mixed-script lookalike domain spoofing attempts.
-- **Renderer Privilege Isolation**: Disallows `<webview>` tag injection and blocks dangerous execution schemes (`javascript:`, `vbscript:`, `file:`).
+### 4. 🌐 Real VPN & Proxy Controller
+- **Honest Network Architecture**: Clear separation of **WireGuard Native Tunnel**, **Custom SOCKS5/HTTP Proxy**, and **Direct Connection** (no fake public proxy claims).
+- **WireGuard Tunnel Controller**: Native service IPC interface supporting standard WireGuard / OpenVPN tunnels with verified handshakes (`muthu-tun0`).
+- **Encrypted DNS-over-HTTPS (DoH)**: Resolves hostnames via Cloudflare DoH (`https://cloudflare-dns.com/dns-query`) to shield queries from ISP inspection.
+- **WebRTC Leak Defense**: Enforces `disable_non_proxied_udp` to prevent public and private IP leaks.
+- **Live Diagnostics**: Built-in IP address and encryption test suite in the VPN modal.
 
-### 🌐 Zero-Log Regional VPN & DNS-over-HTTPS (DoH)
-- **Encrypted DNS-over-HTTPS**: Enforces Cloudflare HTTPS DNS (`https://cloudflare-dns.com/dns-query`) so local Wi-Fi routers and ISP servers cannot track or log domain queries.
-- **Multi-Region Routing**: Switch between **US 🇺🇸**, **EU 🇪🇺**, and **Asia 🌏** secure proxy tunnels with `direct://` failover.
-- **WebRTC IP Leak Protection**: Enforces `disable_non_proxied_udp` to eliminate local LAN and public IP address leaks.
-- **Instant Network Flush**: Automatically flushes host resolver and authentication caches on VPN toggle.
-- **Built-in IP & Protection Verification**: Live test tool in the VPN panel to verify your outward visible IP address and encryption status.
+### 5. 🔒 Granular Permission Manager
+- **Zero Automatic Permissions**: Replaced insecure automatic permission grants with a strict **Allow / Ask / Block** policy.
+- **Interactive Prompt Overlay**: Prompts users for sensitive hardware access (Camera, Microphone, Geolocation, Notifications, Clipboard, USB, MIDI, Bluetooth, Screen Capture).
+- **Persistent Site Storage**: User choices can be saved per-domain in atomic persistent storage (`userData/muthu-permissions.json`).
 
-### 🍃 Intelligent V8 Memory Saver
-- **3-Stage Tab Lifecycle**: `Active` ➔ `Sleeping` (idle 5m) ➔ `Discarded` (idle 15m).
-- **Tab Sleeping**: Throttles background JavaScript timers and mutes inactive audio.
-- **Tab Discarding**: Unloads background `WebContents` while preserving full page state (URL, title, favicon, scroll position) for instant restoration.
-- **Memory Indicator**: Real-time memory saver badge showing active memory optimization metrics.
+### 6. 🍃 Adaptive Multi-Tab Memory Saver
+- **Real OS Metrics**: Replaced arbitrary multiplication formulas with true operating system metrics using `process.getProcessMemoryInfo()` and `app.getAppMetrics()`.
+- **4 Pressure Levels**:
+  - `normal` (< 500 MB): Background tab timer throttling.
+  - `moderate` (500–1000 MB): Aggressive GC and memory sweep.
+  - `high` (1000–1500 MB): Auto-discards oldest inactive background tabs.
+  - `critical` (> 1500 MB): Discards all non-essential tabs while protecting audio-playing or download tabs.
+- **State Preservation**: Discarded tabs preserve URL, scroll position, and navigation history for seamless 1-click restoration.
+- **Live Resource Pill**: Address bar popover displaying real-time RAM (MB), CPU (%), and active tab breakdown.
+
+### 7. 📑 Core Browser Capabilities
+- **Multi-Tab Lifecycle**: New tab (`Ctrl+T`), close tab (`Ctrl+W`), duplicate tab, switch tabs (`Ctrl+1-9`).
+- **Session & Tab Recovery**: Restore closed tab (`Ctrl+Shift+T`) and persistent multi-window session restoration.
+- **Private / Incognito Tabs**: Isolated in-memory partition (`muthu-incognito`) that purges all traces on tab close (`Ctrl+Shift+N`).
+- **Navigation Controls**: Back (`Alt+Left`), Forward (`Alt+Right`), Reload (`Ctrl+R`), Stop, Home, and address bar autocompletion.
+- **Find in Page**: Native text search (`Ctrl+F`) with match counter and keyboard navigation.
+- **Download Manager**: Real-time progress bar, directory selection, and dangerous extension warning (`.exe`, `.bat`, `.ps1`).
+- **Settings Dashboard**: 12 comprehensive categories with atomic JSON persistence (`muthu-settings.json`).
 
 ---
 
@@ -68,60 +71,62 @@
 
 | Component | Technology | Description |
 | :--- | :--- | :--- |
-| **Runtime** | [Electron v33](https://www.electronjs.org/) | Modular multi-process architecture with `BaseWindow` & `WebContentsView` |
-| **Frontend** | [React 18](https://react.dev/) + [TypeScript 5](https://www.typescriptlang.org/) | Declarative Chrome dark mode user interface |
-| **Bundler** | [Vite 5](https://vitejs.dev/) + [@electron-forge/plugin-vite](https://www.electronforge.io/) | Lightning-fast HMR and optimized production bundling |
-| **DNS & Network** | DNS-over-HTTPS (DoH) + SOCKS5/HTTPS | Encrypted zero-log DNS routing & multi-region proxy management |
-| **Security** | Custom TypeScript Security Manager | SSL verification, anti-fingerprinting, homograph detection, CSP |
-| **Storage** | Atomic JSON Store | Local user preferences and browser personalization |
+| **Desktop Runtime** | [Electron v33](https://www.electronjs.org/) | Modular multi-process architecture with `BaseWindow` & `WebContentsView` |
+| **Frontend UI** | [React 18](https://react.dev/) + [TypeScript 5](https://www.typescriptlang.org/) | Chrome dark mode design system with custom interactive components |
+| **Bundler** | [Vite 5](https://vitejs.dev/) + [@electron-forge/plugin-vite](https://www.electronforge.io/) | Fast HMR dev server and optimized production packaging |
+| **AI Search & LLM** | Hybrid BM25 + Vector Semantic Embeddings | AI answer synthesis with source verification and PII redaction |
+| **Network & Tunnel** | WireGuard Native Interface + SOCKS5/HTTP + DoH | Secure tunnel controller with DNS-over-HTTPS privacy |
+| **Security Layer** | Multi-Layer Security & Permission Manager | Allowlist IPC, sandboxed preload, homograph defense, path sanitization |
 
 ---
 
-## 📁 Project Architecture
+## 📁 Repository Structure
 
 ```
 d:/browser project/
+├── backend/
+│   └── search-service/               # Search Backend Specification & Crawler Architecture
+│       └── README.md                 # Spring Boot + PostgreSQL + pgvector + OpenSearch
 ├── src/
-│   ├── main/                         # Electron Main Process (Node.js backend)
-│   │   ├── main.ts                   # Application entry, BaseWindow setup, IPC router
-│   │   ├── tab-manager.ts            # WebContentsView lifecycle & tab management
-│   │   ├── proxy-manager.ts          # SOCKS5/HTTPS VPN proxy controller & IP diagnostic
-│   │   ├── adblock-engine.ts         # Network ad & tracker filter engine
-│   │   ├── memory-manager.ts         # Idle tab sleeping & memory optimization sweep
-│   │   ├── security-manager.ts       # SSL certs, homograph phishing, download defense
-│   │   ├── settings-store.ts         # Atomic file-based settings persistence
-│   │   ├── settings-types.ts         # Settings interfaces & dangerous extension lists
-│   │   ├── url-utils.ts              # URL normalization, OAuth detection, UTM sanitizer
-│   │   ├── speeddial-html.ts         # Speed Dial Start Page HTML template
-│   │   ├── types.ts                  # Shared TypeScript types
-│   │   └── security-verification.test.ts # Security test suite (22 automated checks)
-│   ├── preload/                      # Isolated Preload Layer (ContextBridge)
-│   │   ├── preload.ts                # Typed window.muthuAPI IPC bridge for browser chrome
-│   │   └── tab-preload.ts            # Webpage preload: YouTube ad-skipper & anti-fingerprinting
-│   ├── renderer/                     # Electron Renderer Process (React 18 UI)
-│   │   ├── App.tsx                   # Main layout container & modal router
-│   │   ├── App.css                   # Chrome dark mode design system
-│   │   ├── components/               # React UI Components
-│   │   │   ├── AddressBar.tsx        # Omnibox, SSL badge, action icons, 3-dot trigger
-│   │   │   ├── TabBar.tsx            # Chrome tab strip with sleep & private badges
-│   │   │   ├── BrowserMenu.tsx       # Chrome 3-dot (⋮) dropdown menu
-│   │   │   ├── SettingsPage.tsx      # Chrome settings dashboard with 8 categories
-│   │   │   ├── VpnModal.tsx          # VPN control panel with live IP verification
-│   │   │   ├── VpnToggle.tsx         # Address bar VPN quick indicator
-│   │   │   ├── AdBlockStats.tsx      # Shield badge counter with live block metrics
-│   │   │   ├── MemoryIndicator.tsx   # Memory saver badge with optimization metrics
-│   │   │   └── FindBar.tsx           # In-page search bar (Ctrl+F)
-│   │   ├── hooks/
-│   │   │   └── useIpc.ts             # React hook for IPC subscriptions & state
-│   │   └── global.d.ts               # Global Window.muthuAPI declarations
+│   ├── main/                         # Electron Main Process
+│   │   ├── main.ts                   # Application lifecycle, window creation, IPC handlers
+│   │   ├── tab-manager.ts            # WebContentsView lifecycle, session restore, tab duplicate
+│   │   ├── permission-manager.ts     # Allow/Ask/Block permission store & prompt routing
+│   │   ├── privacy-engine.ts         # Request filter, third-party tracker block, cookie stripping
+│   │   ├── vpn-controller.ts         # WireGuard tunnel controller & proxy manager
+│   │   ├── search-client.ts          # Query understanding & local hybrid search engine
+│   │   ├── ai-client.ts              # Privacy-sanitized AI assistant (Summarize, Q&A, Extract)
+│   │   ├── memory-manager.ts         # Real process metrics (RAM/CPU) & adaptive pressure manager
+│   │   ├── benchmark.ts              # System latency, search, and memory benchmark runner
+│   │   ├── security-manager.ts       # Certificate validation, homograph phishing, download defense
+│   │   ├── settings-store.ts         # Atomic user settings persistence
+│   │   ├── url-utils.ts              # URL normalization & tracking parameter sanitizer
+│   │   ├── types.ts                  # Shared TypeScript type definitions
+│   │   └── security-verification.test.ts # 49-check automated test suite
+│   ├── preload/                      # Sandboxed Preload Layer
+│   │   ├── preload.ts                # Secure window.muthuAPI ContextBridge bridge
+│   │   └── tab-preload.ts            # Webpage script: ad-skipper & anti-fingerprinting
+│   ├── renderer/                     # React 18 UI
+│   │   ├── App.tsx                   # Main browser shell & active view positioning
+│   │   ├── components/               # React UI components
+│   │   │   ├── AddressBar.tsx        # Omnibox with privacy badge, VPN pill, AI trigger
+│   │   │   ├── TabBar.tsx            # Chrome tab strip with sleep & incognito badges
+│   │   │   ├── PrivacyDashboard.tsx  # Per-site shields, blocked metrics & whitelist toggle
+│   │   │   ├── VpnModal.tsx          # WireGuard / Proxy connection modal & IP diagnostic
+│   │   │   ├── PermissionPrompt.tsx  # Interactive Allow/Block permission popup
+│   │   │   ├── AiSearchPage.tsx      # AI search synthesis page with cited sources
+│   │   │   ├── AiSidePanel.tsx       # AI Browser Assistant panel (Summarize, Explain, Q&A)
+│   │   │   ├── MemoryIndicator.tsx   # Real RAM / CPU usage popover
+│   │   │   ├── SettingsPage.tsx      # Comprehensive settings dashboard & benchmark runner
+│   │   │   ├── DownloadManager.tsx   # Floating download shelf
+│   │   │   └── FindBar.tsx           # In-page find bar (Ctrl+F)
+│   │   └── hooks/
+│   │       └── useIpc.ts             # React hook subscribing to main process IPC events
 │   └── shared/
-│       └── ipc-channels.ts           # Centralized IPC channel definitions
-├── forge.config.ts                   # Electron Forge build configuration
-├── vite.main.config.ts               # Vite configuration for Main process
-├── vite.preload.config.ts            # Vite configuration for Preload scripts
-├── vite.renderer.config.ts           # Vite configuration for Renderer UI
+│       └── ipc-channels.ts           # Centralized type-safe IPC channel identifiers
+├── package.json                      # Project dependencies & scripts
 ├── tsconfig.json                     # TypeScript compiler configuration
-└── package.json                      # Project dependencies & npm scripts
+└── forge.config.ts                   # Electron Forge build configuration
 ```
 
 ---
@@ -129,29 +134,29 @@ d:/browser project/
 ## 🚀 Getting Started
 
 ### Prerequisites
-- **Node.js**: v18.0.0 or higher (v20+ recommended)
-- **npm**: v9.0.0 or higher
+- **Node.js**: `v18.0.0` or higher (`v20+` recommended)
+- **npm**: `v9.0.0` or higher
 - **OS**: Windows 10/11, macOS, or Linux
 
 ### Installation
 
-1. **Clone the repository**
+1. **Clone the repository**:
    ```bash
    git clone https://github.com/muthuvel-24/browser.git
    cd browser
    ```
 
-2. **Install dependencies**
+2. **Install dependencies**:
    ```bash
    npm install
    ```
 
-3. **Start in Development Mode**
+3. **Start in Development Mode**:
    ```bash
    npm start
    ```
 
-4. **Run TypeScript Check & Security Tests**
+4. **Run TypeScript Check & Test Suite**:
    ```bash
    npm run lint
    npx tsx src/main/security-verification.test.ts
@@ -159,53 +164,53 @@ d:/browser project/
 
 ---
 
-## 📦 Building & Packaging
+## 🧪 Testing & Verification
 
-To compile and package a standalone desktop application for Windows:
+The browser includes a comprehensive 49-point automated test suite validating security, search engine, permissions, privacy engine, VPN controller, and AI sanitization:
+
+```bash
+npx tsx src/main/security-verification.test.ts
+```
+
+Output:
+```text
+🔒 Commencing Comprehensive Browser Test Suite...
+--- 1. Security & Scheme Isolation (21 tests) ---
+  ✅ PASSED: Block javascript:, vbscript:, file: schemes
+  ✅ PASSED: Strip tracking parameters (utm_*, fbclid)
+  ✅ PASSED: Sanitize path traversal in downloads
+  ✅ PASSED: Cyrillic homograph spoofing detection
+--- 2. Query Understanding & Search Engine (8 tests) ---
+  ✅ PASSED: Intent classification (URL vs Query)
+  ✅ PASSED: Hybrid BM25 + Vector scoring & source citations
+--- 3. Permission Manager (5 tests) ---
+  ✅ PASSED: Allow/Block persistence & normalization
+--- 4. Privacy Engine (4 tests) ---
+  ✅ PASSED: Base domain extraction & per-site shield toggles
+--- 5. VPN Controller (6 tests) ---
+  ✅ PASSED: WireGuard state transitions & honest network mode
+--- 6. AI Client Privacy & Sanitization (3 tests) ---
+  ✅ PASSED: Redaction of Credit Cards, SSNs, JWT tokens
+📊 Comprehensive Verification Summary: 49 Passed, 0 Failed.
+```
+
+---
+
+## 📦 Production Packaging
+
+To compile and package the standalone desktop executable for Windows:
 
 ```bash
 npm run package
 ```
 
-The production-ready executable will be generated at:
+The production bundle will be generated at:
 ```
 out/muthu-browser-win32-x64/muthu-browser.exe
 ```
 
 ---
 
-## ⌨️ Address Bar Keyword Shortcuts
-
-Type any brand name into the address bar and press `Enter` to jump straight to the website:
-
-| Shortcut | Target Destination |
-| :--- | :--- |
-| `amazon` / `amazon.in` | `https://www.amazon.in` / `https://www.amazon.com` |
-| `flipkart` | `https://www.flipkart.com` |
-| `claude` | `https://claude.ai` |
-| `chatgpt` | `https://chatgpt.com` |
-| `youtube` | `https://www.youtube.com` |
-| `github` | `https://github.com` |
-| `reddit` | `https://www.reddit.com` |
-| `netflix` | `https://www.netflix.com` |
-| `spotify` | `https://open.spotify.com` |
-| `gmail` | `https://mail.google.com` |
-
----
-
-## 🔒 Security & Privacy Guarantees
-
-- **Zero DNS Snooping**: Queries are routed via encrypted DNS-over-HTTPS (DoH).
-- **Zero WebRTC Leaks**: Non-proxied UDP traffic is suppressed to safeguard your true IP.
-- **Zero Tracking Parameters**: Privacy-invasive marketing tokens (`utm_*`, `fbclid`) are automatically cleaned.
-- **Isolated Incognito Profile**: Private tabs use an in-memory session partition (`muthu-incognito`) that purges all cookies, cache, and history immediately when the last private tab is closed.
-
----
-
 ## 📄 License
 
 Distributed under the **MIT License**.
-
-<p align="center">
-  Crafted with ❤️ by <a href="https://github.com/muthuvel-24">Muthuvel</a>
-</p>
