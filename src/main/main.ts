@@ -72,30 +72,8 @@ const configuredTabSessions = new WeakSet<Session>();
 // ─── Chrome-compatible User-Agent & Client Hints ────────────────
 const CHROME_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
 
-/**
- * Configure User-Agent and Client Hints headers on a session to match standard Google Chrome Desktop.
- * Prevents Google Sign-In ("This browser or app may not be secure") blocks.
- */
-function configureChromeHeaders(targetSession: Session): void {
-  targetSession.webRequest.onBeforeSendHeaders((details, callback) => {
-    const requestHeaders = { ...(details.requestHeaders ?? {}) };
-    requestHeaders['User-Agent'] = CHROME_UA;
-    requestHeaders['sec-ch-ua'] = '"Google Chrome";v="131", "Chromium";v="131", "Not_A Brand";v="24"';
-    requestHeaders['sec-ch-ua-mobile'] = '?0';
-    requestHeaders['sec-ch-ua-platform'] = '"Windows"';
-    requestHeaders['sec-ch-ua-arch'] = '"x86"';
-    requestHeaders['sec-ch-ua-bitness'] = '"64"';
-    requestHeaders['sec-ch-ua-full-version-list'] = '"Google Chrome";v="131.0.6778.205", "Chromium";v="131.0.6778.205", "Not_A Brand";v="24.0.0.0"';
-
-    if (settingsStore?.get('doNotTrack')) {
-      requestHeaders['DNT'] = '1';
-    }
-
-    callback({ requestHeaders });
-  });
-}
-
 // ─── Permission Hardening ───────────────────────────────────────
+
 /** Allowed benign permissions by default */
 const SAFE_PERMISSIONS = new Set(['fullscreen', 'clipboard-read', 'clipboard-sanitized-write']);
 
@@ -309,20 +287,31 @@ async function createMainWindow(): Promise<void> {
 
 // ─── Window Control IPC ─────────────────────────────────────────
 function registerWindowControls(): void {
-  ipcMain.on('window:minimize', () => {
-    mainWindow?.minimize();
-  });
-  ipcMain.on('window:maximize', () => {
-    if (mainWindow?.isMaximized()) {
-      mainWindow.unmaximize();
-    } else {
-      mainWindow?.maximize();
+  function isFromToolbar(event: Electron.IpcMainEvent): boolean {
+    return Boolean(toolbarView && !toolbarView.webContents.isDestroyed() && event.sender.id === toolbarView.webContents.id);
+  }
+
+  ipcMain.on('window:minimize', (event) => {
+    if (isFromToolbar(event)) {
+      mainWindow?.minimize();
     }
   });
-  ipcMain.on('window:close', () => {
-    mainWindow?.close();
+  ipcMain.on('window:maximize', (event) => {
+    if (isFromToolbar(event)) {
+      if (mainWindow?.isMaximized()) {
+        mainWindow.unmaximize();
+      } else {
+        mainWindow?.maximize();
+      }
+    }
+  });
+  ipcMain.on('window:close', (event) => {
+    if (isFromToolbar(event)) {
+      mainWindow?.close();
+    }
   });
 }
+
 
 // ─── Downloads ──────────────────────────────────────────────────
 import type { DownloadItemInfo } from './types';
@@ -403,81 +392,6 @@ async function handleClearBrowsingData(options: ClearDataOptions): Promise<void>
 
 // ─── IPC Handlers ───────────────────────────────────────────────
 function registerIpcHandlers(): void {
-  ipcMain.handle(IPC.TAB_CREATE, (_event, url?: string) => {
-    if (!tabManager) return '';
-    return tabManager.createTab(url ? normalizeUrl(url) : undefined, false);
-  });
-
-  ipcMain.handle(IPC.TAB_CREATE_PRIVATE, (_event, url?: string) => {
-    if (!tabManager) return '';
-    return tabManager.createTab(url ? normalizeUrl(url) : undefined, true);
-  });
-
-  ipcMain.handle(IPC.TAB_CLOSE, (_event, tabId: string) => {
-    tabManager?.closeTab(tabId);
-  });
-
-  ipcMain.handle(IPC.TAB_SWITCH, (_event, tabId: string) => {
-    tabManager?.switchTab(tabId);
-  });
-
-  ipcMain.handle(IPC.TAB_NAVIGATE, (_event, tabId: string, url: string) => {
-    if (!tabManager) return;
-    const targetId = tabId || tabManager.getActiveTabId() || tabManager.getTabList()[0]?.id || '';
-    if (targetId) tabManager.navigateTo(targetId, normalizeUrl(url));
-  });
-
-  ipcMain.handle(IPC.TAB_GO_BACK, (_event, tabId: string) => {
-    if (!tabManager) return;
-    const targetId = tabId || tabManager.getActiveTabId() || tabManager.getTabList()[0]?.id || '';
-    if (targetId) tabManager.goBack(targetId);
-  });
-
-  ipcMain.handle(IPC.TAB_GO_FORWARD, (_event, tabId: string) => {
-    if (!tabManager) return;
-    const targetId = tabId || tabManager.getActiveTabId() || tabManager.getTabList()[0]?.id || '';
-    if (targetId) tabManager.goForward(targetId);
-  });
-
-  ipcMain.handle(IPC.TAB_RELOAD, (_event, tabId: string) => {
-    if (!tabManager) return;
-    const targetId = tabId || tabManager.getActiveTabId() || tabManager.getTabList()[0]?.id || '';
-    if (targetId) tabManager.reload(targetId);
-  });
-
-  ipcMain.handle(IPC.TAB_STOP, (_event, tabId: string) => {
-    if (!tabManager) return;
-    const targetId = tabId || tabManager.getActiveTabId() || tabManager.getTabList()[0]?.id || '';
-    if (targetId) tabManager.stopLoading(targetId);
-  });
-
-  ipcMain.handle(IPC.TAB_LIST, () => tabManager?.getTabList() ?? []);
-
-  ipcMain.handle(IPC.TOOLBAR_FOCUS, () => {
-    if (toolbarView && !toolbarView.webContents.isDestroyed()) {
-      toolbarView.webContents.focus();
-    }
-  });
-
-  ipcMain.handle(IPC.TOOLBAR_RESIZE, (_event, height: number) => {
-    if (toolbarView && mainWindow) {
-      const bounds = mainWindow.getContentBounds();
-      const h = height && height > 0 ? height : 110;
-      toolbarView.setBounds({ x: 0, y: 0, width: bounds.width, height: h });
-    }
-  });
-
-  ipcMain.handle(IPC.CONTENT_FOCUS, () => tabManager?.focusActiveTab());
-
-  ipcMain.handle(IPC.FIND_IN_PAGE, (_event, text: string, options?: { forward?: boolean; findNext?: boolean }) => {
-    tabManager?.findInPage(text, options);
-  });
-
-  ipcMain.handle(IPC.FIND_STOP, (_event, action?: 'clearSelection' | 'keepSelection' | 'activateSelection') => {
-    tabManager?.findStop(action);
-  });
-
-  ipcMain.handle(IPC.ZOOM_IN, () => tabManager?.zoomIn() ?? 1);
   function assertAuthorizedSender(event: Electron.IpcMainInvokeEvent, channel: string): void {
     if (!toolbarView || toolbarView.webContents.isDestroyed()) {
       throw new Error(`[IPC Security] Toolbar view unavailable for ${channel}`);
@@ -487,6 +401,118 @@ function registerIpcHandlers(): void {
       throw new Error(`[IPC Security] Unauthorized caller for ${channel}`);
     }
   }
+
+  ipcMain.handle(IPC.TAB_CREATE, (event, url?: unknown) => {
+    assertAuthorizedSender(event, IPC.TAB_CREATE);
+    if (!tabManager) return '';
+    const safeUrl = typeof url === 'string' && url.length <= 2048 ? normalizeUrl(url) : undefined;
+    return tabManager.createTab(safeUrl, false);
+  });
+
+  ipcMain.handle(IPC.TAB_CREATE_PRIVATE, (event, url?: unknown) => {
+    assertAuthorizedSender(event, IPC.TAB_CREATE_PRIVATE);
+    if (!tabManager) return '';
+    const safeUrl = typeof url === 'string' && url.length <= 2048 ? normalizeUrl(url) : undefined;
+    return tabManager.createTab(safeUrl, true);
+  });
+
+  ipcMain.handle(IPC.TAB_CLOSE, (event, tabId: unknown) => {
+    assertAuthorizedSender(event, IPC.TAB_CLOSE);
+    if (typeof tabId === 'string' && tabId.length <= 128) {
+      tabManager?.closeTab(tabId);
+    }
+  });
+
+  ipcMain.handle(IPC.TAB_SWITCH, (event, tabId: unknown) => {
+    assertAuthorizedSender(event, IPC.TAB_SWITCH);
+    if (typeof tabId === 'string' && tabId.length <= 128) {
+      tabManager?.switchTab(tabId);
+    }
+  });
+
+  ipcMain.handle(IPC.TAB_NAVIGATE, (event, tabId: unknown, url: unknown) => {
+    assertAuthorizedSender(event, IPC.TAB_NAVIGATE);
+    if (!tabManager || typeof url !== 'string' || url.length > 2048) return;
+    const cleanId = typeof tabId === 'string' && tabId.length <= 128 ? tabId : '';
+    const targetId = cleanId || tabManager.getActiveTabId() || tabManager.getTabList()[0]?.id || '';
+    if (targetId) tabManager.navigateTo(targetId, normalizeUrl(url));
+  });
+
+  ipcMain.handle(IPC.TAB_GO_BACK, (event, tabId: unknown) => {
+    assertAuthorizedSender(event, IPC.TAB_GO_BACK);
+    if (!tabManager) return;
+    const cleanId = typeof tabId === 'string' && tabId.length <= 128 ? tabId : '';
+    const targetId = cleanId || tabManager.getActiveTabId() || tabManager.getTabList()[0]?.id || '';
+    if (targetId) tabManager.goBack(targetId);
+  });
+
+  ipcMain.handle(IPC.TAB_GO_FORWARD, (event, tabId: unknown) => {
+    assertAuthorizedSender(event, IPC.TAB_GO_FORWARD);
+    if (!tabManager) return;
+    const cleanId = typeof tabId === 'string' && tabId.length <= 128 ? tabId : '';
+    const targetId = cleanId || tabManager.getActiveTabId() || tabManager.getTabList()[0]?.id || '';
+    if (targetId) tabManager.goForward(targetId);
+  });
+
+  ipcMain.handle(IPC.TAB_RELOAD, (event, tabId: unknown) => {
+    assertAuthorizedSender(event, IPC.TAB_RELOAD);
+    if (!tabManager) return;
+    const cleanId = typeof tabId === 'string' && tabId.length <= 128 ? tabId : '';
+    const targetId = cleanId || tabManager.getActiveTabId() || tabManager.getTabList()[0]?.id || '';
+    if (targetId) tabManager.reload(targetId);
+  });
+
+  ipcMain.handle(IPC.TAB_STOP, (event, tabId: unknown) => {
+    assertAuthorizedSender(event, IPC.TAB_STOP);
+    if (!tabManager) return;
+    const cleanId = typeof tabId === 'string' && tabId.length <= 128 ? tabId : '';
+    const targetId = cleanId || tabManager.getActiveTabId() || tabManager.getTabList()[0]?.id || '';
+    if (targetId) tabManager.stopLoading(targetId);
+  });
+
+  ipcMain.handle(IPC.TAB_LIST, (event) => {
+    assertAuthorizedSender(event, IPC.TAB_LIST);
+    return tabManager?.getTabList() ?? [];
+  });
+
+  ipcMain.handle(IPC.TOOLBAR_FOCUS, (event) => {
+    assertAuthorizedSender(event, IPC.TOOLBAR_FOCUS);
+    if (toolbarView && !toolbarView.webContents.isDestroyed()) {
+      toolbarView.webContents.focus();
+    }
+  });
+
+  ipcMain.handle(IPC.TOOLBAR_RESIZE, (event, height: unknown) => {
+    assertAuthorizedSender(event, IPC.TOOLBAR_RESIZE);
+    if (toolbarView && mainWindow) {
+      const bounds = mainWindow.getContentBounds();
+      const numHeight = typeof height === 'number' && height > 0 && height <= 500 ? height : 110;
+      toolbarView.setBounds({ x: 0, y: 0, width: bounds.width, height: numHeight });
+    }
+  });
+
+  ipcMain.handle(IPC.CONTENT_FOCUS, (event) => {
+    assertAuthorizedSender(event, IPC.CONTENT_FOCUS);
+    tabManager?.focusActiveTab();
+  });
+
+  ipcMain.handle(IPC.FIND_IN_PAGE, (event, text: unknown, options?: { forward?: boolean; findNext?: boolean }) => {
+    assertAuthorizedSender(event, IPC.FIND_IN_PAGE);
+    if (typeof text === 'string' && text.length <= 500) {
+      tabManager?.findInPage(text, options);
+    }
+  });
+
+  ipcMain.handle(IPC.FIND_STOP, (event, action?: 'clearSelection' | 'keepSelection' | 'activateSelection') => {
+    assertAuthorizedSender(event, IPC.FIND_STOP);
+    tabManager?.findStop(action);
+  });
+
+  ipcMain.handle(IPC.ZOOM_IN, (event) => {
+    assertAuthorizedSender(event, IPC.ZOOM_IN);
+    return tabManager?.zoomIn() ?? 1;
+  });
+
 
   ipcMain.handle(IPC.ZOOM_OUT, (event) => {
     assertAuthorizedSender(event, IPC.ZOOM_OUT);
@@ -685,7 +711,7 @@ function registerIpcHandlers(): void {
   ipcMain.handle(IPC.AI_SUMMARIZE_PAGE, async (event, title: string, url: string, content: string) => {
     assertAuthorizedSender(event, IPC.AI_SUMMARIZE_PAGE);
     const activeTab = tabManager?.getActiveTabId();
-    const isPrivate = activeTab ? tabManager.getTabStatus(activeTab) === 'discarded' : false;
+    const isPrivate = activeTab ? tabManager.isTabPrivate(activeTab) : false;
     const res = await aiClient?.summarizePage(String(title || ''), String(url || ''), String(content || ''), {
       isPrivateTab: isPrivate,
     });
@@ -694,21 +720,34 @@ function registerIpcHandlers(): void {
 
   ipcMain.handle(IPC.AI_EXPLAIN_TEXT, async (event, text: string, context?: string) => {
     assertAuthorizedSender(event, IPC.AI_EXPLAIN_TEXT);
-    const res = await aiClient?.explainText(String(text || ''), context ? String(context) : undefined);
+    const activeTab = tabManager?.getActiveTabId();
+    const isPrivate = activeTab ? tabManager.isTabPrivate(activeTab) : false;
+    const res = await aiClient?.explainText(String(text || ''), context ? String(context) : undefined, {
+      isPrivateTab: isPrivate,
+    });
     return res?.answer || '';
   });
 
   ipcMain.handle(IPC.AI_ASK_QUESTION, async (event, question: string, content: string) => {
     assertAuthorizedSender(event, IPC.AI_ASK_QUESTION);
-    const res = await aiClient?.askPageQuestion(String(question || ''), String(content || ''));
+    const activeTab = tabManager?.getActiveTabId();
+    const isPrivate = activeTab ? tabManager.isTabPrivate(activeTab) : false;
+    const res = await aiClient?.askPageQuestion(String(question || ''), String(content || ''), {
+      isPrivateTab: isPrivate,
+    });
     return res?.answer || '';
   });
 
   ipcMain.handle(IPC.AI_EXTRACT_POINTS, async (event, content: string) => {
     assertAuthorizedSender(event, IPC.AI_EXTRACT_POINTS);
-    const res = await aiClient?.extractKeyPoints(String(content || ''));
+    const activeTab = tabManager?.getActiveTabId();
+    const isPrivate = activeTab ? tabManager.isTabPrivate(activeTab) : false;
+    const res = await aiClient?.extractKeyPoints(String(content || ''), {
+      isPrivateTab: isPrivate,
+    });
     return res?.answer || '';
   });
+
 
   // ─── Performance Diagnostics & Benchmark ────────────────────
   ipcMain.handle(IPC.BENCHMARK_RUN, async (event) => {

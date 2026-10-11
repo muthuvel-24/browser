@@ -1005,6 +1005,10 @@ export class TabManager {
     return this.tabs.get(tabId)?.status;
   }
 
+  isTabPrivate(tabId: string): boolean {
+    return Boolean(this.tabs.get(tabId)?.isPrivate);
+  }
+
   getBackgroundTabIds(): string[] {
     return Array.from(this.tabs.keys()).filter((id) => id !== this.activeTabId);
   }
@@ -1020,3 +1024,5 @@ export class TabManager {
     return this.tabs.get(this.activeTabId)?.url ?? '';
   }
 }
+
+
