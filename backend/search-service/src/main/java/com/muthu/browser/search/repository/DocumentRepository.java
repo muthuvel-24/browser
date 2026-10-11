@@ -28,7 +28,7 @@ public interface DocumentRepository extends JpaRepository<DocumentEntity, String
     List<Object[]> searchKeyword(@Param("query") String query, @Param("limit") int limit);
 
     /**
-     * Hybrid Search: Combines full-text ranking with pgvector cosine similarity distance (<=>)
+     * Text Relevance Search: Ranks documents using PostgreSQL full-text ts_rank scoring
      */
     @Query(value = """
         SELECT d.id, d.url, d.title, d.snippet, d.content, d.domain, d.indexed_at,

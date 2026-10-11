@@ -128,17 +128,19 @@ public class SearchResponseDto {
         private String snippet;
         private String domain;
         private double bm25Score;
-        private double vectorScore;
+        private double relevanceScore;
+        private double vectorScore; // Kept as alias for existing API clients
         private int finalRank;
 
         public WebResultDto() {}
-        public WebResultDto(String title, String url, String snippet, String domain, double bm25Score, double vectorScore, int finalRank) {
+        public WebResultDto(String title, String url, String snippet, String domain, double bm25Score, double relevanceScore, int finalRank) {
             this.title = title;
             this.url = url;
             this.snippet = snippet;
             this.domain = domain;
             this.bm25Score = bm25Score;
-            this.vectorScore = vectorScore;
+            this.relevanceScore = relevanceScore;
+            this.vectorScore = relevanceScore;
             this.finalRank = finalRank;
         }
 
@@ -157,8 +159,11 @@ public class SearchResponseDto {
         public double getBm25Score() { return bm25Score; }
         public void setBm25Score(double bm25Score) { this.bm25Score = bm25Score; }
 
+        public double getRelevanceScore() { return relevanceScore; }
+        public void setRelevanceScore(double relevanceScore) { this.relevanceScore = relevanceScore; this.vectorScore = relevanceScore; }
+
         public double getVectorScore() { return vectorScore; }
-        public void setVectorScore(double vectorScore) { this.vectorScore = vectorScore; }
+        public void setVectorScore(double vectorScore) { this.vectorScore = vectorScore; this.relevanceScore = vectorScore; }
 
         public int getFinalRank() { return finalRank; }
         public void setFinalRank(int finalRank) { this.finalRank = finalRank; }

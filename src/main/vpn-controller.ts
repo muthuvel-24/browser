@@ -210,12 +210,16 @@ export class VpnController extends EventEmitter {
         }
       });
 
-      // Wait briefly for initial startup failure
-      await new Promise((resolve) => setTimeout(resolve, 1500));
+      // Real verification of tunnel readiness and handshake confirmation
+      const readiness = await this.verifyTunnelReadiness(child, protocol, configPath);
 
-      if (hasExited) {
+      if (!readiness.connected) {
         this.state = 'error';
-        this.message = exitError || 'Tunnel service terminated immediately. Administrator privileges may be required to configure network adapters.';
+        this.message = readiness.error || 'Tunnel verification failed. Administrator privileges or valid server endpoint configuration required.';
+        try {
+          child.kill();
+        } catch {}
+        this.tunnelProcess = null;
         this.emitStatus();
         return this.getStatus();
       }
@@ -239,6 +243,79 @@ export class VpnController extends EventEmitter {
       this.emitStatus();
       return this.getStatus();
     }
+  }
+
+  /**
+   * Verify genuine tunnel service status or handshake confirmation before reporting connected.
+   */
+  private async verifyTunnelReadiness(
+    child: ChildProcess,
+    protocol: TunnelProtocol,
+    configPath: string,
+    timeoutMs = 8000
+  ): Promise<{ connected: boolean; error?: string }> {
+    return new Promise((resolve) => {
+      let isSettled = false;
+      const timer = setTimeout(() => {
+        if (!isSettled) {
+          isSettled = true;
+          resolve({
+            connected: false,
+            error: `${protocol === 'wireguard' ? 'WireGuard' : 'OpenVPN'} tunnel verification timed out without establishing network route.`,
+          });
+        }
+      }, timeoutMs);
+
+      const finish = (connected: boolean, error?: string) => {
+        if (!isSettled) {
+          isSettled = true;
+          clearTimeout(timer);
+          resolve({ connected, error });
+        }
+      };
+
+      child.once('error', (err) => {
+        finish(false, err.message);
+      });
+
+      child.once('exit', (code) => {
+        finish(false, code === 0 ? 'Process terminated before handshake completed.' : `Process exited with code ${code}`);
+      });
+
+      if (protocol === 'openvpn') {
+        const onData = (data: Buffer) => {
+          const text = data.toString();
+          if (text.includes('Initialization Sequence Completed')) {
+            finish(true);
+          } else if (text.includes('AUTH_FAILED') || text.includes('TLS Error') || text.includes('Cannot resolve host')) {
+            finish(false, `OpenVPN authentication or connection error: ${text.trim().slice(0, 150)}`);
+          }
+        };
+        child.stdout?.on('data', onData);
+        child.stderr?.on('data', onData);
+      } else {
+        // WireGuard on Windows installs a service: WireGuardTunnel$<basename>
+        const configBaseName = path.basename(configPath, path.extname(configPath));
+        const serviceName = `WireGuardTunnel$${configBaseName}`;
+        let intervalCount = 0;
+        const pollService = setInterval(() => {
+          intervalCount++;
+          if (isSettled || intervalCount > 15) {
+            clearInterval(pollService);
+            return;
+          }
+          if (process.platform === 'win32') {
+            const { execFile } = require('node:child_process');
+            execFile('sc.exe', ['query', serviceName], (err: any, stdout: string) => {
+              if (!err && stdout && stdout.includes('STATE') && stdout.includes('RUNNING')) {
+                clearInterval(pollService);
+                finish(true);
+              }
+            });
+          }
+        }, 500);
+      }
+    });
   }
 
   /**

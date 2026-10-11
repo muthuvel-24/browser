@@ -101,6 +101,45 @@ public class SafeUrlValidator {
         return uri;
     }
 
+    public static class SafeTarget {
+        private final URI uri;
+        private final InetAddress address;
+        private final String originalHost;
+        private final int port;
+
+        public SafeTarget(URI uri, InetAddress address, String originalHost, int port) {
+            this.uri = uri;
+            this.address = address;
+            this.originalHost = originalHost;
+            this.port = port;
+        }
+
+        public URI getUri() { return uri; }
+        public InetAddress getAddress() { return address; }
+        public String getOriginalHost() { return originalHost; }
+        public int getPort() { return port; }
+    }
+
+    /**
+     * Validates URL and returns a pinned IP address target for DNS-rebinding safe HTTP connections.
+     */
+    public SafeTarget validateAndPin(String urlString) {
+        URI uri = validateAndResolve(urlString);
+        String hostLower = uri.getHost().toLowerCase().trim();
+        try {
+            InetAddress[] addresses = InetAddress.getAllByName(hostLower);
+            if (addresses == null || addresses.length == 0) {
+                throw new SecurityException("Host resolved to no IP addresses: " + hostLower);
+            }
+            for (InetAddress addr : addresses) {
+                validateAddress(addr, hostLower);
+            }
+            return new SafeTarget(uri, addresses[0], hostLower, uri.getPort());
+        } catch (UnknownHostException e) {
+            throw new SecurityException("Unable to resolve hostname: " + hostLower);
+        }
+    }
+
     /**
      * Inspect an IP address against loopback, private, link-local, multicast, metadata, and IPv6 ranges.
      */

@@ -59,4 +59,22 @@ class SafeUrlValidatorTest {
         InetAddress loopbackV4 = InetAddress.getByName("127.0.0.1");
         assertThrows(SecurityException.class, () -> validator.validateAddress(loopbackV4, "127.0.0.1"));
     }
+
+    @Test
+    void testValidateAndPin() {
+        SafeUrlValidator.SafeTarget target = validator.validateAndPin("https://example.com/index.html");
+        assertNotNull(target);
+        assertNotNull(target.getAddress());
+        assertEquals("example.com", target.getOriginalHost());
+        assertEquals("https", target.getUri().getScheme());
+    }
+
+    @Test
+    void testIpv6UniqueLocalAndMapped() throws Exception {
+        InetAddress ula = InetAddress.getByName("fc00::1");
+        assertThrows(SecurityException.class, () -> validator.validateAddress(ula, "fc00::1"));
+
+        InetAddress ulaFd = InetAddress.getByName("fd00::1");
+        assertThrows(SecurityException.class, () -> validator.validateAddress(ulaFd, "fd00::1"));
+    }
 }

@@ -22,6 +22,13 @@ import { PrivacyEngine } from './privacy-engine.js';
 import { AdBlockEngine } from './adblock-engine.js';
 import { VpnController } from './vpn-controller.js';
 import { AiClient } from './ai-client.js';
+import {
+  isAuthorizedIpcSender,
+  isValidSettingKey,
+  validateSettingValue,
+  clampToolbarHeight,
+  validatePermissionParams,
+} from './ipc-auth.js';
 import path from 'path';
 import os from 'os';
 import fs from 'fs';
@@ -210,6 +217,113 @@ async function runAllTests(): Promise<void> {
   ];
   const persistable = mockTabs.filter((t) => !t.isPrivate);
   assert(persistable.length === 1 && persistable[0].url === 'https://work.com', 'Exclude private tabs from disk session persistence');
+
+  // ─── 9. IPC Frame Authorization & Sender Origin Security ─────────
+  console.log('\n--- 9. IPC Frame Authorization & Origin Verification ---');
+  // Expected dev toolbar
+  const validDevEvent = {
+    sender: { id: 10, isDestroyed: () => false },
+    senderFrame: { parent: null, url: 'http://localhost:5174/index.html' },
+  };
+  assert(
+    isAuthorizedIpcSender(validDevEvent, 10, 'http://localhost:5174'),
+    'Authorize valid toolbar root frame in development mode'
+  );
+
+  // Mismatched webContents ID
+  const wrongSenderEvent = {
+    sender: { id: 99, isDestroyed: () => false },
+    senderFrame: { parent: null, url: 'http://localhost:5174/index.html' },
+  };
+  assert(
+    !isAuthorizedIpcSender(wrongSenderEvent, 10, 'http://localhost:5174'),
+    'Reject call from foreign WebContents ID'
+  );
+
+  // Destroyed sender
+  const destroyedEvent = {
+    sender: { id: 10, isDestroyed: () => true },
+    senderFrame: { parent: null, url: 'http://localhost:5174/index.html' },
+  };
+  assert(
+    !isAuthorizedIpcSender(destroyedEvent, 10, 'http://localhost:5174'),
+    'Reject call from destroyed WebContents'
+  );
+
+  // Nested child iframe
+  const childIframeEvent = {
+    sender: { id: 10, isDestroyed: () => false },
+    senderFrame: { parent: { url: 'http://localhost:5174/' }, url: 'http://localhost:5174/ad.html' },
+  };
+  assert(
+    !isAuthorizedIpcSender(childIframeEvent, 10, 'http://localhost:5174'),
+    'Reject call from nested child iframe within toolbar'
+  );
+
+  // Foreign origin / website injection
+  const foreignOriginEvent = {
+    sender: { id: 10, isDestroyed: () => false },
+    senderFrame: { parent: null, url: 'https://evil-attacker.com/exploit.html' },
+  };
+  assert(
+    !isAuthorizedIpcSender(foreignOriginEvent, 10, 'http://localhost:5174'),
+    'Reject call from untrusted foreign web origin'
+  );
+
+  // Production bundle file:// verification
+  const validProdEvent = {
+    sender: { id: 5, isDestroyed: () => false },
+    senderFrame: { parent: null, url: 'file:///C:/app/renderer/main_window/index.html' },
+  };
+  assert(
+    isAuthorizedIpcSender(validProdEvent, 5, undefined, 'main_window'),
+    'Authorize valid packaged production bundle file URL'
+  );
+
+  // Production foreign file or non-bundle
+  const invalidProdEvent = {
+    sender: { id: 5, isDestroyed: () => false },
+    senderFrame: { parent: null, url: 'https://malicious.org/index.html' },
+  };
+  assert(
+    !isAuthorizedIpcSender(invalidProdEvent, 5, undefined, 'main_window'),
+    'Reject non-file protocol in production mode'
+  );
+
+  // ─── 10. Settings Schema & Parameter Boundaries ──────────────────
+  console.log('\n--- 10. Settings Schema & Boundary Validation ---');
+  // Prototype pollution defense
+  assert(!isValidSettingKey('__proto__'), 'Block prototype pollution attempt on __proto__');
+  assert(!isValidSettingKey('constructor'), 'Block prototype pollution attempt on constructor');
+  assert(!isValidSettingKey('unknownSettingKey'), 'Reject unrecognized setting key');
+  assert(isValidSettingKey('adBlockerEnabled'), 'Allow legitimate setting key adBlockerEnabled');
+
+  // Type boundary validation
+  assert(validateSettingValue('adBlockerEnabled', false), 'Accept valid boolean setting value');
+  assert(!validateSettingValue('adBlockerEnabled', 'invalid-string'), 'Reject invalid string type for boolean setting');
+  assert(validateSettingValue('zoomLevel', 110), 'Accept valid numeric zoom level');
+  assert(!validateSettingValue('zoomLevel', 99999), 'Reject out-of-bounds numeric zoom level');
+  assert(validateSettingValue('theme', 'dark'), 'Accept valid theme enum value');
+  assert(!validateSettingValue('theme', 'invalid-theme'), 'Reject invalid enum string for theme');
+
+  // Toolbar bounds clamping
+  assert(clampToolbarHeight(50, 900) === 110, 'Clamp sub-minimum toolbar height to 110');
+  assert(clampToolbarHeight(2000, 850) === 850, 'Clamp excessive toolbar height to window height limit');
+  assert(clampToolbarHeight(null, 850) === 110, 'Fallback to 110 for non-numeric toolbar height');
+
+  // Permission parameters validation
+  assert(
+    validatePermissionParams('https://meet.google.com', 'camera', 'allow').valid === true,
+    'Accept valid permission tuple'
+  );
+  assert(
+    validatePermissionParams('https://meet.google.com', 'unknown_perm', 'allow').valid === false,
+    'Reject unrecognized permission type'
+  );
+  assert(
+    validatePermissionParams('https://meet.google.com', 'camera', 'invalid_decision').valid === false,
+    'Reject invalid permission decision'
+  );
 
   console.log(`\n📊 Comprehensive Verification Summary: ${passed} Passed, ${failed} Failed.`);
   if (failed > 0) {

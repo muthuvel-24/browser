@@ -41,8 +41,10 @@ public class SearchController {
     public ResponseEntity<Map<String, String>> crawl(@RequestParam("url") String url,
                                                      @RequestParam(value = "depth", defaultValue = "1") int depth,
                                                      @RequestHeader(value = "X-Crawler-Key", required = false) String apiKey) {
-        // Enforce authorization for the crawler trigger endpoint
-        if (apiKey == null || !apiKey.equals(crawlerSecretKey)) {
+        // Enforce constant-time authorization check for crawler trigger endpoint
+        if (apiKey == null || !java.security.MessageDigest.isEqual(
+                apiKey.getBytes(java.nio.charset.StandardCharsets.UTF_8),
+                crawlerSecretKey.getBytes(java.nio.charset.StandardCharsets.UTF_8))) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                     .body(Map.of("status", "forbidden", "message", "Invalid or missing X-Crawler-Key header"));
         }

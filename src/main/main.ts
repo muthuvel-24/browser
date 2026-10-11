@@ -35,6 +35,13 @@ import {
   isDangerousExtension,
   isSafeNavigation,
 } from './security-manager';
+import {
+  isAuthorizedIpcSender,
+  validateSettingValue,
+  isValidSettingKey,
+  clampToolbarHeight,
+  validatePermissionParams,
+} from './ipc-auth';
 
 // ─── Chromium Flags ─────────────────────────────────────────────
 app.commandLine.appendSwitch('js-flags', '--max-old-space-size=256');
@@ -137,6 +144,12 @@ async function createMainWindow(): Promise<void> {
   toolbarView.setBounds({ x: 0, y: 0, width: contentBounds.width, height: 110 });
   toolbarView.setBackgroundColor('#0f0f1a');
   mainWindow.contentView.addChildView(toolbarView);
+
+  // Lock down navigation and window opening on toolbarView to prevent untrusted execution
+  toolbarView.webContents.on('will-navigate', (event) => {
+    event.preventDefault();
+  });
+  toolbarView.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
 
   if (MAIN_WINDOW_VITE_DEV_SERVER_URL) {
     await toolbarView.webContents.loadURL(MAIN_WINDOW_VITE_DEV_SERVER_URL);
@@ -288,7 +301,16 @@ async function createMainWindow(): Promise<void> {
 // ─── Window Control IPC ─────────────────────────────────────────
 function registerWindowControls(): void {
   function isFromToolbar(event: Electron.IpcMainEvent): boolean {
-    return Boolean(toolbarView && !toolbarView.webContents.isDestroyed() && event.sender.id === toolbarView.webContents.id);
+    return Boolean(
+      toolbarView &&
+      !toolbarView.webContents.isDestroyed() &&
+      isAuthorizedIpcSender(
+        event,
+        toolbarView.webContents.id,
+        MAIN_WINDOW_VITE_DEV_SERVER_URL,
+        MAIN_WINDOW_VITE_NAME
+      )
+    );
   }
 
   ipcMain.on('window:minimize', (event) => {
@@ -396,8 +418,17 @@ function registerIpcHandlers(): void {
     if (!toolbarView || toolbarView.webContents.isDestroyed()) {
       throw new Error(`[IPC Security] Toolbar view unavailable for ${channel}`);
     }
-    if (event.sender.id !== toolbarView.webContents.id) {
-      console.warn(`[IPC Security] Denied unauthorized call to ${channel} from webContents ${event.sender.id}`);
+    if (
+      !isAuthorizedIpcSender(
+        event,
+        toolbarView.webContents.id,
+        MAIN_WINDOW_VITE_DEV_SERVER_URL,
+        MAIN_WINDOW_VITE_NAME
+      )
+    ) {
+      console.warn(
+        `[IPC Security] Denied unauthorized call to ${channel} from webContents ${event.sender?.id} frame ${event.senderFrame?.url}`
+      );
       throw new Error(`[IPC Security] Unauthorized caller for ${channel}`);
     }
   }
@@ -486,10 +517,11 @@ function registerIpcHandlers(): void {
     assertAuthorizedSender(event, IPC.TOOLBAR_RESIZE);
     if (toolbarView && mainWindow) {
       const bounds = mainWindow.getContentBounds();
-      const numHeight = typeof height === 'number' && height > 0 && height <= 500 ? height : 110;
+      const numHeight = clampToolbarHeight(height, bounds.height);
       toolbarView.setBounds({ x: 0, y: 0, width: bounds.width, height: numHeight });
     }
   });
+
 
   ipcMain.handle(IPC.CONTENT_FOCUS, (event) => {
     assertAuthorizedSender(event, IPC.CONTENT_FOCUS);
@@ -609,14 +641,21 @@ function registerIpcHandlers(): void {
   });
 
   // ─── Settings IPC ───────────────────────────────────────────
-  ipcMain.handle(IPC.SETTINGS_GET, (event, key: keyof BrowserSettings) => {
+  ipcMain.handle(IPC.SETTINGS_GET, (event, key: unknown) => {
     assertAuthorizedSender(event, IPC.SETTINGS_GET);
-    return settingsStore?.get(key);
+    if (isValidSettingKey(key)) {
+      return settingsStore?.get(key);
+    }
+    return undefined;
   });
 
-  ipcMain.handle(IPC.SETTINGS_SET, (event, key: keyof BrowserSettings, value: unknown) => {
+  ipcMain.handle(IPC.SETTINGS_SET, (event, key: unknown, value: unknown) => {
     assertAuthorizedSender(event, IPC.SETTINGS_SET);
-    settingsStore?.set(key, value as never);
+    if (isValidSettingKey(key) && validateSettingValue(key, value)) {
+      settingsStore?.set(key, value);
+    } else {
+      console.warn(`[Settings Security] Invalid setting key or value rejected for key: ${String(key)}`);
+    }
   });
 
   ipcMain.handle(IPC.SETTINGS_GET_ALL, (event) => {
@@ -624,10 +663,18 @@ function registerIpcHandlers(): void {
     return settingsStore?.getAll() ?? {};
   });
 
-  ipcMain.handle(IPC.SETTINGS_SET_ALL, (event, partial: Partial<BrowserSettings>) => {
+  ipcMain.handle(IPC.SETTINGS_SET_ALL, (event, partial: unknown) => {
     assertAuthorizedSender(event, IPC.SETTINGS_SET_ALL);
-    if (partial && typeof partial === 'object') {
-      settingsStore?.setAll(partial);
+    if (partial && typeof partial === 'object' && !Array.isArray(partial)) {
+      const safePartial: Partial<BrowserSettings> = {};
+      for (const [k, v] of Object.entries(partial)) {
+        if (isValidSettingKey(k) && validateSettingValue(k, v)) {
+          (safePartial as Record<string, unknown>)[k] = v;
+        }
+      }
+      if (Object.keys(safePartial).length > 0) {
+        settingsStore?.setAll(safePartial);
+      }
     }
   });
 
@@ -669,10 +716,13 @@ function registerIpcHandlers(): void {
     return permissionManager?.getAllPermissions() ?? {};
   });
 
-  ipcMain.handle(IPC.PERMISSION_SET, (event, origin: string, perm: any, decision: any) => {
+  ipcMain.handle(IPC.PERMISSION_SET, (event, origin: unknown, perm: unknown, decision: unknown) => {
     assertAuthorizedSender(event, IPC.PERMISSION_SET);
-    if (typeof origin === 'string' && origin.length <= 512) {
-      permissionManager?.setSitePermission(origin, perm, decision);
+    const validated = validatePermissionParams(origin, perm, decision);
+    if (validated.valid) {
+      permissionManager?.setSitePermission(validated.origin, validated.perm as any, validated.decision);
+    } else {
+      console.warn(`[Permissions Security] Invalid permission update rejected for origin: ${String(origin)}`);
     }
   });
 

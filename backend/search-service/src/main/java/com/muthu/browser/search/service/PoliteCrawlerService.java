@@ -3,6 +3,7 @@ package com.muthu.browser.search.service;
 import com.muthu.browser.search.model.DocumentEntity;
 import com.muthu.browser.search.repository.DocumentRepository;
 import com.muthu.browser.search.security.RobotsTxtParser;
+import com.muthu.browser.search.security.SafeHttpConnector;
 import com.muthu.browser.search.security.SafeUrlValidator;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
@@ -32,6 +33,7 @@ public class PoliteCrawlerService {
 
     private final DocumentRepository documentRepository;
     private final SafeUrlValidator safeUrlValidator;
+    private final SafeHttpConnector safeHttpConnector;
     private final RobotsTxtParser robotsTxtParser;
 
     private final Map<String, Long> domainLastVisit = new ConcurrentHashMap<>();
@@ -45,9 +47,11 @@ public class PoliteCrawlerService {
 
     public PoliteCrawlerService(DocumentRepository documentRepository,
                                 SafeUrlValidator safeUrlValidator,
+                                SafeHttpConnector safeHttpConnector,
                                 RobotsTxtParser robotsTxtParser) {
         this.documentRepository = documentRepository;
         this.safeUrlValidator = safeUrlValidator;
+        this.safeHttpConnector = safeHttpConnector;
         this.robotsTxtParser = robotsTxtParser;
     }
 
@@ -92,13 +96,7 @@ public class PoliteCrawlerService {
         int redirects = 0;
 
         while (redirects <= MAX_REDIRECTS) {
-            URI safeUri = safeUrlValidator.validateAndResolve(currentUrl);
-            URL url = safeUri.toURL();
-            HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-            conn.setInstanceFollowRedirects(false); // Manually follow with SSRF re-validation
-            conn.setConnectTimeout(5000);
-            conn.setReadTimeout(5000);
-            conn.setRequestProperty("User-Agent", userAgent);
+            HttpURLConnection conn = safeHttpConnector.openSafeConnection(currentUrl, userAgent, 5000);
 
             int status = conn.getResponseCode();
             if (status >= 300 && status < 400) {
@@ -107,9 +105,10 @@ public class PoliteCrawlerService {
                 if (location == null || location.isBlank()) {
                     throw new SecurityException("Redirect location missing");
                 }
-                URI nextUri = safeUri.resolve(location);
+                URI currentUri = new URI(currentUrl);
+                URI nextUri = currentUri.resolve(location);
                 currentUrl = nextUri.toString();
-                // Validate new location
+                // Validate new location upfront
                 safeUrlValidator.validateAndResolve(currentUrl);
                 redirects++;
                 continue;

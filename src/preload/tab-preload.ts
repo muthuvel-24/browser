@@ -247,29 +247,42 @@ if (window.location.hostname.includes('youtube.com')) {
     injectStyles();
   }
 
-  // Active Ad Skipper Engine: Auto-skips video ads in 0 milliseconds
+  // Active Ad Skipper Engine: Auto-skips video ads efficiently without burning CPU
+  let isSkipScheduled = false;
+
+  const scheduleSkipAds = () => {
+    if (isSkipScheduled) return;
+    isSkipScheduled = true;
+    requestAnimationFrame(() => {
+      isSkipScheduled = false;
+      skipAds();
+    });
+  };
+
   const skipAds = () => {
     try {
       const moviePlayer = document.getElementById('movie_player') || document.querySelector('.html5-video-player');
-      const isAdActive = moviePlayer && (
+      const isAdActive = Boolean(moviePlayer && (
         moviePlayer.classList.contains('ad-showing') ||
         moviePlayer.classList.contains('ad-interrupting') ||
         document.querySelector('.ytp-ad-player-overlay') !== null ||
         document.querySelector('.ytp-ad-player-overlay-layout') !== null
-      );
+      ));
 
       const video = (document.querySelector('video.html5-main-video') || document.querySelector('video')) as HTMLVideoElement | null;
 
       if (isAdActive && video) {
-        // Fast-forward video ad to completion instantly
+        // Fast-forward video ad to completion cleanly
         video.muted = true;
         video.playbackRate = 16.0;
         if (!isNaN(video.duration) && video.duration > 0) {
           video.currentTime = video.duration + 1;
         }
+        // If ad is actively playing, schedule a follow-up verification check
+        setTimeout(scheduleSkipAds, 300);
       }
 
-      // Auto-click all known skip buttons instantly
+      // Auto-click known skip buttons
       const skipButtons = [
         '.ytp-ad-skip-button',
         '.ytp-ad-skip-button-modern',
@@ -287,27 +300,21 @@ if (window.location.hostname.includes('youtube.com')) {
           btn.click();
         }
       }
-    } catch (e) {}
+    } catch {}
   };
 
-  // Run skip loop every 50 milliseconds
-  setInterval(skipAds, 50);
-
-  // Hook into YouTube SPA navigation and page events
+  // Hook into YouTube SPA navigation and playback events (without continuous polling)
   window.addEventListener('yt-navigate-finish', () => {
     injectStyles();
-    skipAds();
+    scheduleSkipAds();
   });
-  window.addEventListener('yt-page-data-updated', skipAds);
-  window.addEventListener('load', skipAds);
+  window.addEventListener('yt-page-data-updated', scheduleSkipAds);
+  window.addEventListener('load', scheduleSkipAds);
+  document.addEventListener('play', scheduleSkipAds, true);
 
-  // Hook video play/timeupdate events for instant ad destruction
-  document.addEventListener('play', skipAds, true);
-  document.addEventListener('timeupdate', skipAds, true);
-
-  // Also hook into DOM mutations for instant response
+  // Hook into DOM mutations via debounced requestAnimationFrame to avoid CPU contention
   const observer = new MutationObserver(() => {
-    skipAds();
+    scheduleSkipAds();
   });
 
   if (document.body) {

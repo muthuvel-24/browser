@@ -8,15 +8,15 @@ import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.URI;
-import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Fetches, parses, and caches robots.txt files per domain.
- * Honors User-agent matching (custom or wildcard '*'), Disallow / Allow rules,
- * and Crawl-delay directives.
+ * Fetches, parses, and caches robots.txt files per domain in compliance with RFC 9309.
+ * Honors User-agent group selection (preferring specific product token over wildcard '*'),
+ * Allow and Disallow directives, wildcard pattern matching ('*'), end-of-path anchors ('$'),
+ * Crawl-delay directives, and HTTP status codes (2xx, 4xx allow-all, 5xx disallow-all).
  */
 @Component
 public class RobotsTxtParser {
@@ -24,10 +24,12 @@ public class RobotsTxtParser {
     private static final Logger log = LoggerFactory.getLogger(RobotsTxtParser.class);
 
     private final SafeUrlValidator safeUrlValidator;
+    private final SafeHttpConnector safeHttpConnector;
     private final Map<String, DomainRobotsPolicy> cache = new ConcurrentHashMap<>();
 
-    public RobotsTxtParser(SafeUrlValidator safeUrlValidator) {
+    public RobotsTxtParser(SafeUrlValidator safeUrlValidator, SafeHttpConnector safeHttpConnector) {
         this.safeUrlValidator = safeUrlValidator;
+        this.safeHttpConnector = safeHttpConnector;
     }
 
     public static class DomainRobotsPolicy {
@@ -35,6 +37,13 @@ public class RobotsTxtParser {
         public final List<String> allows = new ArrayList<>();
         public long crawlDelaySeconds = 0;
         public final long fetchedTimestamp = System.currentTimeMillis();
+    }
+
+    private static class RobotsGroup {
+        final List<String> userAgents = new ArrayList<>();
+        final List<String> allows = new ArrayList<>();
+        final List<String> disallows = new ArrayList<>();
+        long crawlDelaySeconds = 0;
     }
 
     /**
@@ -51,13 +60,13 @@ public class RobotsTxtParser {
 
             DomainRobotsPolicy policy = getPolicyForDomain(uri, userAgent);
             if (policy == null) {
-                // If robots.txt cannot be fetched (e.g. 404), default to allowed
+                // If policy cannot be determined, default to allowed
                 return true;
             }
 
-            // Longest matching rule wins between Allow and Disallow
-            String matchedAllow = findLongestPrefixMatch(path, policy.allows);
-            String matchedDisallow = findLongestPrefixMatch(path, policy.disallows);
+            // Longest matching rule wins between Allow and Disallow per RFC 9309 section 2.2.2
+            String matchedAllow = findLongestMatch(path, policy.allows);
+            String matchedDisallow = findLongestMatch(path, policy.disallows);
 
             if (matchedDisallow == null) {
                 return true;
@@ -84,7 +93,7 @@ public class RobotsTxtParser {
         }
     }
 
-    private String findLongestPrefixMatch(String path, List<String> patterns) {
+    private String findLongestMatch(String path, List<String> patterns) {
         String longest = null;
         for (String pattern : patterns) {
             if (pathMatches(path, pattern)) {
@@ -96,13 +105,47 @@ public class RobotsTxtParser {
         return longest;
     }
 
-    private boolean pathMatches(String path, String pattern) {
-        if (pattern.isEmpty()) return false;
-        if (pattern.endsWith("$")) {
-            String prefix = pattern.substring(0, pattern.length() - 1);
-            return path.equals(prefix);
+    /**
+     * Evaluates whether a URL path matches a robots.txt pattern containing
+     * optional wildcard '*' and end-anchor '$' characters.
+     */
+    public static boolean pathMatches(String path, String pattern) {
+        if (pattern == null || pattern.isEmpty()) {
+            return false;
         }
-        return path.startsWith(pattern);
+
+        // Fast path: literal prefix check if no special characters
+        if (!pattern.contains("*") && !pattern.endsWith("$")) {
+            return path.startsWith(pattern);
+        }
+
+        StringBuilder regex = new StringBuilder("^");
+        int len = pattern.length();
+        boolean hasEndAnchor = pattern.endsWith("$");
+        int endLimit = hasEndAnchor ? len - 1 : len;
+
+        for (int i = 0; i < endLimit; i++) {
+            char c = pattern.charAt(i);
+            if (c == '*') {
+                regex.append(".*");
+            } else if ("\\.[]{}()+-?^|".indexOf(c) != -1) {
+                regex.append('\\').append(c);
+            } else {
+                regex.append(c);
+            }
+        }
+
+        if (hasEndAnchor) {
+            regex.append("$");
+        } else {
+            regex.append(".*");
+        }
+
+        try {
+            return path.matches(regex.toString());
+        } catch (Exception e) {
+            return path.startsWith(pattern);
+        }
     }
 
     private DomainRobotsPolicy getPolicyForDomain(URI uri, String userAgent) {
@@ -126,30 +169,30 @@ public class RobotsTxtParser {
         String robotsUrl = domainKey + "/robots.txt";
         HttpURLConnection conn = null;
         try {
-            URI safeUri = safeUrlValidator.validateAndResolve(robotsUrl);
-            URL url = safeUri.toURL();
-            conn = (HttpURLConnection) url.openConnection();
-            conn.setInstanceFollowRedirects(false); // Do not follow redirects automatically
-            conn.setConnectTimeout(3000);
-            conn.setReadTimeout(3000);
-            conn.setRequestProperty("User-Agent", userAgent);
+            // Fetch safely using DNS-rebinding immune connection
+            conn = safeHttpConnector.openSafeConnection(robotsUrl, userAgent, 3000);
 
             int code = conn.getResponseCode();
-            if (code == 404 || code == 410) {
-                // Robots not present -> all allowed
+            if (code >= 400 && code < 500) {
+                // 4xx: robots.txt does not exist or access denied -> allow all per RFC 9309
                 return new DomainRobotsPolicy();
+            }
+            if (code >= 500 && code < 600) {
+                // 5xx: Server error -> fail closed (disallow all) to avoid overwhelming failing server
+                DomainRobotsPolicy failClosed = new DomainRobotsPolicy();
+                failClosed.disallows.add("/");
+                return failClosed;
             }
             if (code < 200 || code >= 300) {
-                // Server error / redirect -> fail closed or safe default
                 return new DomainRobotsPolicy();
             }
 
-            DomainRobotsPolicy policy = new DomainRobotsPolicy();
+            List<RobotsGroup> groups = new ArrayList<>();
+            RobotsGroup currentGroup = null;
+            boolean inDirectives = false;
+
             try (BufferedReader reader = new BufferedReader(new InputStreamReader(conn.getInputStream(), StandardCharsets.UTF_8))) {
                 String line;
-                boolean appliesToMe = false;
-                String normalizedAgent = userAgent.toLowerCase();
-
                 while ((line = reader.readLine()) != null) {
                     line = line.trim();
                     if (line.isEmpty() || line.startsWith("#")) continue;
@@ -162,19 +205,57 @@ public class RobotsTxtParser {
 
                     if ("user-agent".equals(directive)) {
                         String agentToken = value.toLowerCase();
-                        appliesToMe = "*".equals(agentToken) || normalizedAgent.contains(agentToken);
-                    } else if (appliesToMe) {
+                        if (inDirectives || currentGroup == null) {
+                            currentGroup = new RobotsGroup();
+                            groups.add(currentGroup);
+                            inDirectives = false;
+                        }
+                        currentGroup.userAgents.add(agentToken);
+                    } else if (currentGroup != null) {
+                        inDirectives = true;
                         if ("disallow".equals(directive) && !value.isEmpty()) {
-                            policy.disallows.add(value);
+                            currentGroup.disallows.add(value);
                         } else if ("allow".equals(directive) && !value.isEmpty()) {
-                            policy.allows.add(value);
+                            currentGroup.allows.add(value);
                         } else if ("crawl-delay".equals(directive)) {
                             try {
-                                policy.crawlDelaySeconds = Long.parseLong(value);
+                                currentGroup.crawlDelaySeconds = Long.parseLong(value);
                             } catch (NumberFormatException ignored) {}
                         }
                     }
                 }
+            }
+
+            // Find group matching our user-agent (exact token / substring), or wildcard '*'
+            String normalizedAgent = userAgent.toLowerCase();
+            RobotsGroup selectedGroup = null;
+
+            // 1. Specific product token group check
+            for (RobotsGroup g : groups) {
+                for (String token : g.userAgents) {
+                    if (!"*".equals(token) && normalizedAgent.contains(token)) {
+                        selectedGroup = g;
+                        break;
+                    }
+                }
+                if (selectedGroup != null) break;
+            }
+
+            // 2. Wildcard group fallback
+            if (selectedGroup == null) {
+                for (RobotsGroup g : groups) {
+                    if (g.userAgents.contains("*")) {
+                        selectedGroup = g;
+                        break;
+                    }
+                }
+            }
+
+            DomainRobotsPolicy policy = new DomainRobotsPolicy();
+            if (selectedGroup != null) {
+                policy.allows.addAll(selectedGroup.allows);
+                policy.disallows.addAll(selectedGroup.disallows);
+                policy.crawlDelaySeconds = selectedGroup.crawlDelaySeconds;
             }
             return policy;
         } catch (Exception e) {
